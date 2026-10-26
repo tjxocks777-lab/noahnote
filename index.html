@@ -864,6 +864,17 @@
       <div class="btn-row"><button class="btn" id="install-btn" style="display:none;">홈 화면에 설치</button></div>
     </div>
 
+    <div class="settings-block" id="sync-block">
+      <h3>기기 간 동기화</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력하면 데이터를 주고받을 수 있어요. 한쪽에서 "올리기", 다른 쪽에서 "내려받기"를 누르세요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(netlify.app)로 열었을 때만 동작해요.</p>
+      <input type="password" id="sync-pass" placeholder="동기화 암호 (8자 이상)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--line,#ccd);border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;" id="sync-last"></p>
+      <div class="btn-row" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn" id="sync-up-btn">올리기 (이 기기 → 서버)</button>
+        <button class="btn outline" id="sync-down-btn">내려받기 (서버 → 이 기기)</button>
+      </div>
+    </div>
+
     <div class="settings-block">
       <h3>데이터 백업 / 복구</h3>
       <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 6px;">모든 과목의 문제·암기·요점정리·오답노트·학습 기록(첨부 사진 포함)을 파일 하나로 저장해요. 브라우저 기록·사이트 데이터를 지우거나 폰을 바꾸면 앱 안의 데이터는 사라지니, 가끔 백업 파일을 저장해 두세요.</p>
@@ -4322,10 +4333,10 @@ function b64FromBlob(blob){
   return new Promise(res=>{ const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = ()=>res(''); r.readAsDataURL(blob); });
 }
 async function blobFromB64(u){ return (await fetch(u)).blob(); }
-document.getElementById('backup-export-btn').addEventListener('click', async ()=>{
-  try{
-    if(currentSubject) allSubjects[currentSubject] = data;
-    const att = {};
+async function buildBackupJson(includeAtt){
+  if(currentSubject) allSubjects[currentSubject] = data;
+  const att = {};
+  if(includeAtt){
     for(const s of Object.values(allSubjects)){
       for(const n of (s.notes||[])){
         for(const a of (n.att||[])){
@@ -4335,7 +4346,12 @@ document.getElementById('backup-export-btn').addEventListener('click', async ()=
         }
       }
     }
-    const out = JSON.stringify({ app:'noah-note', version:1, savedAt:new Date().toISOString(), subjects: allSubjects, lastSubject, att });
+  }
+  return JSON.stringify({ app:'noah-note', version:1, savedAt:new Date().toISOString(), subjects: allSubjects, lastSubject, att });
+}
+document.getElementById('backup-export-btn').addEventListener('click', async ()=>{
+  try{
+    const out = await buildBackupJson(true);
     const blob = new Blob([out], {type:'application/json'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -4365,6 +4381,55 @@ function afterRestore(){
   renderSubjectList();
   showToast(ok ? '복구했어요. 과목을 선택하세요' : '복구는 됐지만 이 화면에선 저장이 안 돼요. 사파리로 열어 다시 복구해주세요');
 }
+/* ---------- 기기 간 동기화 (Netlify Blobs) ---------- */
+const SYNC_PASS_KEY = 'noah-note-sync-pass', SYNC_META = 'noah-note-sync-last';
+const syncPassEl = document.getElementById('sync-pass');
+try{ syncPassEl.value = localStorage.getItem(SYNC_PASS_KEY) || ''; }catch(_){}
+function syncLastText(){
+  let d=null; try{ d = localStorage.getItem(SYNC_META); }catch(_){}
+  document.getElementById('sync-last').textContent = d || '';
+}
+syncLastText();
+async function syncKey(){
+  const pw = (syncPassEl.value||'').trim();
+  if(pw.length < 8){ showToast('암호를 8자 이상 입력하세요'); return null; }
+  if(!/^https?:$/.test(location.protocol) || !/(^|\.)(netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname)){ showToast('동기화는 netlify.app 주소로 열었을 때만 돼요'); return null; }
+  try{ localStorage.setItem(SYNC_PASS_KEY, pw); }catch(_){}
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('noah-note:'+pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function syncStamp(msg){ try{ localStorage.setItem(SYNC_META, msg); }catch(_){} syncLastText(); }
+document.getElementById('sync-up-btn').addEventListener('click', async ()=>{
+  const k = await syncKey(); if(!k) return;
+  try{
+    showToast('올리는 중…');
+    let body = await buildBackupJson(true), noAtt = false;
+    if(body.length > 5200000){ body = await buildBackupJson(false); noAtt = true; }
+    if(body.length > 5200000){ showToast('데이터가 너무 커서 올릴 수 없어요'); return; }
+    const r = await fetch('/api/sync?k='+k, { method:'PUT', headers:{'Content-Type':'application/json'}, body });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const msg = '마지막 올리기: '+new Date().toLocaleString('ko-KR')+(noAtt?' (첨부 사진 제외)':'');
+    syncStamp(msg); showToast(noAtt ? '올렸어요 (사진은 용량 때문에 제외)' : '올렸어요');
+  }catch(e){ console.error(e); showToast('올리기 실패: 서버 설정을 확인하세요'); }
+});
+document.getElementById('sync-down-btn').addEventListener('click', async ()=>{
+  const k = await syncKey(); if(!k) return;
+  let obj;
+  try{
+    const r = await fetch('/api/sync?k='+k, { cache:'no-store' });
+    if(r.status===404){ showToast('서버에 이 암호로 올린 데이터가 없어요'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    obj = await r.json();
+  }catch(e){ console.error(e); showToast('내려받기 실패: 서버 설정을 확인하세요'); return; }
+  if(!obj || !obj.subjects){ showToast('서버 데이터가 올바르지 않아요'); return; }
+  const cnt = Object.values(obj.subjects).reduce((s,x)=>s+((x.questions||[]).length),0);
+  const when = obj.savedAt ? new Date(obj.savedAt).toLocaleString('ko-KR') : '';
+  showConfirmModal(`서버 데이터(${when}, 문제·암기 ${cnt}개)로 바꿀까요? 지금 이 기기의 데이터는 서버 내용으로 대체돼요. (먼저 백업 파일을 저장해 두면 안전해요)`, async ()=>{
+    try{ if(await restoreFromObject(obj, obj.att)){ syncStamp('마지막 내려받기: '+new Date().toLocaleString('ko-KR')); afterRestore(); } }
+    catch(err){ showToast('복구 중 오류: '+(err&&err.message||err)); }
+  });
+});
+
 document.getElementById('backup-import-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());
 document.getElementById('picker-restore-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());
 document.getElementById('backup-import-input').addEventListener('change', async e=>{
