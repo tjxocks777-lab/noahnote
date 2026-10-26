@@ -865,14 +865,20 @@
     </div>
 
     <div class="settings-block" id="sync-block">
-      <h3>기기 간 동기화</h3>
-      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력하면 데이터를 주고받을 수 있어요. 한쪽에서 "올리기", 다른 쪽에서 "내려받기"를 누르세요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(netlify.app)로 열었을 때만 동작해요.</p>
+      <h3>기기 간 자동 동기화</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력해 두면 공부한 내용이 자동으로 서로 맞춰져요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(netlify.app)로 열었을 때만 동작해요.</p>
       <input type="password" id="sync-pass" placeholder="동기화 암호 (8자 이상)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--line,#ccd);border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;">
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;" id="sync-last"></p>
       <div class="btn-row" style="flex-wrap:wrap;gap:8px;">
-        <button class="btn" id="sync-up-btn">올리기 (이 기기 → 서버)</button>
-        <button class="btn outline" id="sync-down-btn">내려받기 (서버 → 이 기기)</button>
+        <button class="btn" id="sync-now-btn">켜기 / 지금 동기화</button>
+        <button class="btn outline" id="sync-off-btn">끄기</button>
       </div>
+      <details style="margin-top:12px;"><summary style="font-size:12.5px;color:var(--ink-soft);cursor:pointer;">수동으로 덮어쓰기</summary>
+        <div class="btn-row" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
+          <button class="btn outline" id="sync-up-btn">이 기기 → 서버로 덮어쓰기</button>
+          <button class="btn outline" id="sync-down-btn">서버 → 이 기기로 덮어쓰기</button>
+        </div>
+      </details>
     </div>
 
     <div class="settings-block">
@@ -1176,6 +1182,11 @@ function storageErrorMessage(e){
   return '저장 중 오류가 발생했어요';
 }
 async function persistBlob(){
+  const r = await persistBlobRaw();
+  if(r){ try{ syncMarkDirty(); }catch(_){} }
+  return r;
+}
+async function persistBlobRaw(){
   if(loadFailed){ showToast('저장된 데이터를 읽지 못해 저장을 멈췄어요. 설정에서 복구해주세요'); return; }
   try{
     const blob = JSON.stringify({ subjects: allSubjects, lastSubject: lastSubject, savedAt: Date.now() });
@@ -4275,20 +4286,26 @@ document.getElementById('switch-subject-btn').addEventListener('click', ()=>{
 
 /* ---------- 확인 모달 ---------- */
 let confirmModalCallback = null;
-function showConfirmModal(message, onConfirm){
+let confirmModalCancel = null;
+function showConfirmModal(message, onConfirm, onCancel, yesLabel, noLabel){
   document.getElementById('confirm-modal-message').textContent = message;
+  document.getElementById('confirm-modal-yes').textContent = yesLabel || '예';
+  document.getElementById('confirm-modal-no').textContent = noLabel || '아니요';
+  confirmModalCancel = onCancel || null;
   confirmModalCallback = onConfirm;
   document.getElementById('confirm-modal').classList.add('show');
 }
 document.getElementById('confirm-modal-yes').addEventListener('click', ()=>{
   document.getElementById('confirm-modal').classList.remove('show');
   const cb = confirmModalCallback;
-  confirmModalCallback = null;
+  confirmModalCallback = null; confirmModalCancel = null;
   if(cb) cb();
 });
 document.getElementById('confirm-modal-no').addEventListener('click', ()=>{
   document.getElementById('confirm-modal').classList.remove('show');
-  confirmModalCallback = null;
+  const cb = confirmModalCancel;
+  confirmModalCallback = null; confirmModalCancel = null;
+  if(cb) cb();
 });
 
 document.addEventListener('keydown', (e)=>{
@@ -4333,7 +4350,7 @@ function b64FromBlob(blob){
   return new Promise(res=>{ const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = ()=>res(''); r.readAsDataURL(blob); });
 }
 async function blobFromB64(u){ return (await fetch(u)).blob(); }
-async function buildBackupJson(includeAtt){
+async function buildBackupJson(includeAtt, savedAt){
   if(currentSubject) allSubjects[currentSubject] = data;
   const att = {};
   if(includeAtt){
@@ -4347,7 +4364,7 @@ async function buildBackupJson(includeAtt){
       }
     }
   }
-  return JSON.stringify({ app:'noah-note', version:1, savedAt:new Date().toISOString(), subjects: allSubjects, lastSubject, att });
+  return JSON.stringify({ app:'noah-note', version:1, savedAt: savedAt || new Date().toISOString(), subjects: allSubjects, lastSubject, att });
 }
 document.getElementById('backup-export-btn').addEventListener('click', async ()=>{
   try{
@@ -4381,54 +4398,148 @@ function afterRestore(){
   renderSubjectList();
   showToast(ok ? '복구했어요. 과목을 선택하세요' : '복구는 됐지만 이 화면에선 저장이 안 돼요. 사파리로 열어 다시 복구해주세요');
 }
-/* ---------- 기기 간 동기화 (Netlify Blobs) ---------- */
-const SYNC_PASS_KEY = 'noah-note-sync-pass', SYNC_META = 'noah-note-sync-last';
+/* ---------- 기기 간 자동 동기화 (Netlify Blobs) ---------- */
+const SYNC_PASS_KEY='noah-note-sync-pass', SYNC_BASE_KEY='noah-note-sync-base', SYNC_DIRTY_KEY='noah-note-sync-dirty', SYNC_ATT_KEY='noah-note-sync-atts', SYNC_META='noah-note-sync-last';
 const syncPassEl = document.getElementById('sync-pass');
-try{ syncPassEl.value = localStorage.getItem(SYNC_PASS_KEY) || ''; }catch(_){}
-function syncLastText(){
-  let d=null; try{ d = localStorage.getItem(SYNC_META); }catch(_){}
-  document.getElementById('sync-last').textContent = d || '';
-}
-syncLastText();
+const lsGet = k=>{ try{ return localStorage.getItem(k); }catch(_){ return null; } };
+const lsSet = (k,v)=>{ try{ if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(_){} };
+syncPassEl.value = lsGet(SYNC_PASS_KEY) || '';
+let syncBusy=false, syncApplying=false, syncTimer=null, syncKeyCache=null;
+function syncHostOk(){ return /^https?:$/.test(location.protocol) && /(^|\.)(netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname); }
+function syncEnabled(){ return !!lsGet(SYNC_PASS_KEY) && syncHostOk(); }
+function syncStatus(msg){ lsSet(SYNC_META, msg); const el=document.getElementById('sync-last'); if(el) el.textContent = msg||''; }
+syncStatus(lsGet(SYNC_META)||'');
 async function syncKey(){
-  const pw = (syncPassEl.value||'').trim();
-  if(pw.length < 8){ showToast('암호를 8자 이상 입력하세요'); return null; }
-  if(!/^https?:$/.test(location.protocol) || !/(^|\.)(netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname)){ showToast('동기화는 netlify.app 주소로 열었을 때만 돼요'); return null; }
-  try{ localStorage.setItem(SYNC_PASS_KEY, pw); }catch(_){}
+  const pw = lsGet(SYNC_PASS_KEY) || '';
+  if(syncKeyCache && syncKeyCache.pw===pw) return syncKeyCache.k;
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('noah-note:'+pw));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const k = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  syncKeyCache = {pw,k}; return k;
 }
-function syncStamp(msg){ try{ localStorage.setItem(SYNC_META, msg); }catch(_){} syncLastText(); }
-document.getElementById('sync-up-btn').addEventListener('click', async ()=>{
-  const k = await syncKey(); if(!k) return;
+function syncMarkDirty(){
+  if(syncApplying || !syncEnabled()) return;
+  lsSet(SYNC_DIRTY_KEY,'1');
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>syncRun(), 5000);
+}
+function syncHasContent(){ return Object.values(allSubjects||{}).some(x=>((x.questions||[]).length+(x.notes||[]).length+(x.drafts||[]).length)>0); }
+async function syncMeta(k){
+  const r = await fetch('/api/sync?k='+k+'&meta=1',{cache:'no-store'});
+  if(r.status===404) return null;
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+function syncAttIds(){
+  const ids=new Set();
+  for(const s of Object.values(allSubjects||{})) for(const n of (s.notes||[])) for(const a of (n.att||[])) ids.add(a.id);
+  return [...ids];
+}
+async function syncPushAtts(k){
+  let done; try{ done = new Set(JSON.parse(lsGet(SYNC_ATT_KEY)||'[]')); }catch(_){ done = new Set(); }
+  for(const id of syncAttIds()){
+    if(done.has(id)) continue;
+    const blob = await AttDB.get(id); if(!blob){ continue; }
+    const body = await b64FromBlob(blob);
+    if(body.length > 5400000) continue;
+    const r = await fetch('/api/sync?k='+k+'&att='+encodeURIComponent(id), {method:'PUT', headers:{'Content-Type':'text/plain'}, body});
+    if(!r.ok) throw new Error('att HTTP '+r.status);
+    done.add(id); lsSet(SYNC_ATT_KEY, JSON.stringify([...done]));
+  }
+}
+async function syncPullAtts(k){
+  let done; try{ done = new Set(JSON.parse(lsGet(SYNC_ATT_KEY)||'[]')); }catch(_){ done = new Set(); }
+  for(const id of syncAttIds()){
+    const have = await AttDB.get(id); if(have){ done.add(id); continue; }
+    try{
+      const r = await fetch('/api/sync?k='+k+'&att='+encodeURIComponent(id),{cache:'no-store'});
+      if(!r.ok) continue;
+      await AttDB.put(id, await blobFromB64(await r.text())); done.add(id);
+    }catch(_){}
+  }
+  lsSet(SYNC_ATT_KEY, JSON.stringify([...done]));
+}
+async function syncPush(k){
+  await syncPushAtts(k);
+  const stamp = new Date().toISOString();
+  const body = await buildBackupJson(false, stamp);
+  if(body.length > 5600000) throw new Error('too large');
+  const r = await fetch('/api/sync?k='+k, {method:'PUT', headers:{'Content-Type':'application/json'}, body});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  lsSet(SYNC_BASE_KEY, stamp); lsSet(SYNC_DIRTY_KEY, null);
+  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
+}
+async function syncPull(k, quiet){
+  const r = await fetch('/api/sync?k='+k,{cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const obj = await r.json();
+  if(!obj || !obj.subjects) throw new Error('bad data');
+  lsSet(SYNC_BASE_KEY, obj.savedAt||''); // 복구 중 dirty가 켜지지 않게 먼저 설정
+  syncApplying = true;
   try{
-    showToast('올리는 중…');
-    let body = await buildBackupJson(true), noAtt = false;
-    if(body.length > 5200000){ body = await buildBackupJson(false); noAtt = true; }
-    if(body.length > 5200000){ showToast('데이터가 너무 커서 올릴 수 없어요'); return; }
-    const r = await fetch('/api/sync?k='+k, { method:'PUT', headers:{'Content-Type':'application/json'}, body });
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const msg = '마지막 올리기: '+new Date().toLocaleString('ko-KR')+(noAtt?' (첨부 사진 제외)':'');
-    syncStamp(msg); showToast(noAtt ? '올렸어요 (사진은 용량 때문에 제외)' : '올렸어요');
-  }catch(e){ console.error(e); showToast('올리기 실패: 서버 설정을 확인하세요'); }
+    // 덮어쓰기 직전 내 데이터를 한 번 더 남겨둠
+    try{ const cur = localStorage.getItem(LOCAL_KEY); if(cur && cur.length>50) localStorage.setItem(LOCAL_KEY+'.syncbak', cur); }catch(_){}
+    await restoreFromObject(obj, {});
+    await syncPullAtts(k);
+  } finally { syncApplying = false; }
+  lsSet(SYNC_DIRTY_KEY, null);
+  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
+  afterRestore();
+  if(quiet) showToast('다른 기기의 최신 내용을 가져왔어요');
+}
+function syncConflict(k){
+  return new Promise(res=>{
+    showConfirmModal('이 기기와 다른 기기에서 각각 내용이 바뀌었어요. 어느 쪽을 남길까요?',
+      async ()=>{ try{ await syncPush(k); showToast('이 기기 내용으로 맞췄어요'); }catch(e){ syncStatus('동기화 실패'); } res(); },
+      async ()=>{ try{ await syncPull(k, true); }catch(e){ syncStatus('동기화 실패'); } res(); },
+      '이 기기 내용 유지', '서버 내용으로 교체');
+  });
+}
+async function syncRun(manual){
+  if(syncBusy) return;
+  if(!syncEnabled()){ if(manual) showToast('암호를 입력하고 netlify.app 주소에서 켜세요'); return; }
+  if(!dataReady || loadFailed) return;
+  syncBusy = true;
+  try{
+    if(currentSubject) allSubjects[currentSubject] = data;
+    const k = await syncKey();
+    const meta = await syncMeta(k);
+    const base = lsGet(SYNC_BASE_KEY), dirty = lsGet(SYNC_DIRTY_KEY)==='1';
+    if(!meta){
+      if(syncHasContent()) await syncPush(k); else syncStatus('서버가 비어 있어요');
+    }else if(base && meta.savedAt===base){
+      if(dirty) await syncPush(k); else if(manual){ syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR')); showToast('이미 최신이에요'); }
+    }else{
+      if(!dirty || !syncHasContent()) await syncPull(k, true);
+      else await syncConflict(k);
+    }
+  }catch(e){ console.error(e); syncStatus('동기화 실패 — 인터넷이나 서버 설정을 확인하세요'); if(manual) showToast('동기화에 실패했어요'); }
+  finally{ syncBusy = false; }
+}
+document.getElementById('sync-now-btn').addEventListener('click', async ()=>{
+  const pw = (syncPassEl.value||'').trim();
+  if(pw.length<8){ showToast('암호를 8자 이상 입력하세요'); return; }
+  if(!syncHostOk()){ showToast('동기화는 netlify.app 주소로 열었을 때만 돼요'); return; }
+  if(pw !== lsGet(SYNC_PASS_KEY)){ lsSet(SYNC_PASS_KEY, pw); lsSet(SYNC_BASE_KEY, null); syncKeyCache=null; }
+  await syncRun(true);
 });
-document.getElementById('sync-down-btn').addEventListener('click', async ()=>{
-  const k = await syncKey(); if(!k) return;
-  let obj;
-  try{
-    const r = await fetch('/api/sync?k='+k, { cache:'no-store' });
-    if(r.status===404){ showToast('서버에 이 암호로 올린 데이터가 없어요'); return; }
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    obj = await r.json();
-  }catch(e){ console.error(e); showToast('내려받기 실패: 서버 설정을 확인하세요'); return; }
-  if(!obj || !obj.subjects){ showToast('서버 데이터가 올바르지 않아요'); return; }
-  const cnt = Object.values(obj.subjects).reduce((s,x)=>s+((x.questions||[]).length),0);
-  const when = obj.savedAt ? new Date(obj.savedAt).toLocaleString('ko-KR') : '';
-  showConfirmModal(`서버 데이터(${when}, 문제·암기 ${cnt}개)로 바꿀까요? 지금 이 기기의 데이터는 서버 내용으로 대체돼요. (먼저 백업 파일을 저장해 두면 안전해요)`, async ()=>{
-    try{ if(await restoreFromObject(obj, obj.att)){ syncStamp('마지막 내려받기: '+new Date().toLocaleString('ko-KR')); afterRestore(); } }
-    catch(err){ showToast('복구 중 오류: '+(err&&err.message||err)); }
+document.getElementById('sync-off-btn').addEventListener('click', ()=>{
+  lsSet(SYNC_PASS_KEY, null); lsSet(SYNC_BASE_KEY, null); lsSet(SYNC_DIRTY_KEY, null); syncPassEl.value=''; syncKeyCache=null;
+  syncStatus('자동 동기화를 껐어요'); showToast('동기화를 껐어요');
+});
+document.getElementById('sync-up-btn').addEventListener('click', async ()=>{
+  if(!syncEnabled()){ showToast('먼저 암호를 입력하고 "켜기"를 누르세요'); return; }
+  showConfirmModal('이 기기 내용으로 서버를 덮어쓸까요? 다른 기기의 변경은 사라져요.', async ()=>{
+    try{ if(currentSubject) allSubjects[currentSubject]=data; await syncPush(await syncKey()); showToast('서버에 덮어썼어요'); }catch(e){ showToast('실패했어요'); }
   });
 });
+document.getElementById('sync-down-btn').addEventListener('click', async ()=>{
+  if(!syncEnabled()){ showToast('먼저 암호를 입력하고 "켜기"를 누르세요'); return; }
+  showConfirmModal('서버 내용으로 이 기기를 덮어쓸까요? 이 기기에서 올리지 않은 변경은 사라져요.', async ()=>{
+    try{ await syncPull(await syncKey(), false); }catch(e){ showToast('실패했어요'); }
+  });
+});
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') setTimeout(()=>syncRun(), 800); });
+window.addEventListener('online', ()=>syncRun());
 
 document.getElementById('backup-import-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());
 document.getElementById('picker-restore-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());
@@ -4466,6 +4577,7 @@ document.getElementById('backup-auto-btn').addEventListener('click', ()=>{
   if(document.getElementById('cover-screen').style.display !== 'none'){
     document.querySelector('.cover-hint').textContent = '화면을 눌러 시작하기';
   }
+  setTimeout(()=>syncRun(), 600);
 })();
 </script>
 </body>
