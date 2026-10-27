@@ -1838,7 +1838,7 @@ function nvPaint(el){
     const img = document.createElement('img'); img.alt = '첨부';
     img.style.cssText = `top:${top*W}px;height:${a.ar*W}px;`;
     el.appendChild(img); top += a.ar;
-    AttDB.url(a.id).then(u=>{ if(u && el._tok===tok) img.src = u; });
+    attUrl(a).then(u=>{ if(u && el._tok===tok) img.src = u; });
   });
   if(strokes.length || src.drawing){
     const cv = document.createElement('canvas'); cv.className = 'nv-ink';
@@ -1901,7 +1901,7 @@ function neBuildAtt(){
       d.appendChild(eb);
     }
     box.appendChild(d);
-    AttDB.url(a.id).then(u=>{ if(u) img.src = u; });
+    attUrl(a).then(u=>{ if(u) img.src = u; });
   });
 }
 function neLayout(){
@@ -2270,6 +2270,23 @@ function mmAdd(asChild){
   else return;
   MM.sel = n.id; mmRender();
   const ti = neEl('mm-text'); ti.value = ''; ti.focus();
+}
+/* 첨부 그림 주소: 저장된 사진이 없고 마인드맵 데이터가 있으면 마인드맵을 다시 그려서 채워 넣음 */
+const attRegen = new Map();
+async function attUrl(a){
+  let u = await AttDB.url(a.id);
+  if(u || !a.mm) return u;
+  if(!attRegen.has(a.id)){
+    attRegen.set(a.id, (async()=>{
+      try{
+        const tree = a.mm.hidden ? a.mm : { id:'sr0', t:'', hidden:true, ch:[a.mm] };
+        const r = await mmRenderPng(tree);
+        if(r && r.blob){ await AttDB.put(a.id, r.blob); return await AttDB.url(a.id); }
+      }catch(e){ console.error(e); }
+      return '';
+    })());
+  }
+  return attRegen.get(a.id);
 }
 function mmRenderPng(tree){
   const keep = MM.tree; MM.tree = tree;
