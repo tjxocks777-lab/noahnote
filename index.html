@@ -1753,7 +1753,9 @@ const AttDB = (()=>{
   }
   async function url(id){
     if(urls.has(id)) return urls.get(id);
-    const b = await get(id); if(!b) return '';
+    let b = await get(id);
+    if(!b && typeof syncFetchAtt==='function'){ try{ b = await syncFetchAtt(id); }catch(_){} }
+    if(!b) return '';
     const u = await toDataUrl(b); urls.set(id, u); return u;
   }
   async function del(id){
@@ -4434,6 +4436,22 @@ function syncAttIds(){
   for(const s of Object.values(allSubjects||{})) for(const n of (s.notes||[])) for(const a of (n.att||[])) ids.add(a.id);
   return [...ids];
 }
+const syncAttInflight = new Map();
+function syncFetchAtt(id){
+  if(!syncEnabled()) return Promise.resolve(null);
+  if(syncAttInflight.has(id)) return syncAttInflight.get(id);
+  const pr = (async()=>{
+    try{
+      const k = await syncKey();
+      const r = await fetch('/api/sync?k='+k+'&att='+encodeURIComponent(id),{cache:'no-store'});
+      if(!r.ok) return null;
+      const blob = await blobFromB64(await r.text());
+      await AttDB.put(id, blob); return blob;
+    }catch(_){ return null; }
+    finally{ syncAttInflight.delete(id); }
+  })();
+  syncAttInflight.set(id, pr); return pr;
+}
 async function syncPushAtts(k){
   let done; try{ done = new Set(JSON.parse(lsGet(SYNC_ATT_KEY)||'[]')); }catch(_){ done = new Set(); }
   for(const id of syncAttIds()){
@@ -4449,7 +4467,7 @@ async function syncPushAtts(k){
 async function syncPullAtts(k){
   let done; try{ done = new Set(JSON.parse(lsGet(SYNC_ATT_KEY)||'[]')); }catch(_){ done = new Set(); }
   for(const id of syncAttIds()){
-    const have = await AttDB.get(id); if(have){ done.add(id); continue; }
+    const have = await AttDB.get(id); if(have) continue;
     try{
       const r = await fetch('/api/sync?k='+k+'&att='+encodeURIComponent(id),{cache:'no-store'});
       if(!r.ok) continue;
@@ -4512,6 +4530,8 @@ async function syncRun(manual){
       if(!dirty || !syncHasContent()) await syncPull(k, true);
       else await syncConflict(k);
     }
+    // 사진은 본문과 별개로 항상 맞춰둠 (못 올린/못 받은 사진 보충)
+    try{ await syncPushAtts(k); await syncPullAtts(k); }catch(_){}
   }catch(e){ console.error(e); syncStatus('동기화 실패 — 인터넷이나 서버 설정을 확인하세요'); if(manual) showToast('동기화에 실패했어요'); }
   finally{ syncBusy = false; }
 }
