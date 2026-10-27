@@ -864,6 +864,15 @@
       <div class="btn-row"><button class="btn" id="install-btn" style="display:none;">홈 화면에 설치</button></div>
     </div>
 
+    <div class="settings-block" id="scanmodel-block">
+      <h3>스캔 정확도 / 비용</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">사진 한 장 스캔할 때마다 API 요금이 나가요. 절약 모드는 정확 모드의 약 3분의 1 요금이에요 (대략 절약 장당 17원, 정확 장당 50원). 인쇄된 글자는 절약 모드로 충분하고, 손글씨나 작은 글자가 잘 안 읽히면 정확 모드로 바꾸세요.</p>
+      <div class="btn-row" style="gap:8px;">
+        <button class="btn" id="scanmodel-eco">절약 (Haiku)</button>
+        <button class="btn outline" id="scanmodel-pro">정확 (Sonnet)</button>
+      </div>
+    </div>
+
     <div class="settings-block" id="sync-block">
       <h3>기기 간 자동 동기화</h3>
       <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력해 두면 공부한 내용이 자동으로 서로 맞춰져요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(netlify.app)로 열었을 때만 동작해요.</p>
@@ -3428,6 +3437,18 @@ function resetScan(){
 ['scan-file','scan-cam'].forEach(id=>{
   document.getElementById(id).addEventListener('change', e=>{ addScanFiles(e.target.files); e.target.value=''; });
 });
+const SCAN_MODELS = { eco:'claude-haiku-4-5-20251001', pro:'claude-sonnet-4-6' };
+function scanMode(){ let m=null; try{ m=localStorage.getItem('noah-note-scan-mode'); }catch(_){} return m==='pro' ? 'pro' : 'eco'; }
+function scanModel(){ return SCAN_MODELS[scanMode()]; }
+function scanModelUI(){
+  const m = scanMode();
+  const eco=document.getElementById('scanmodel-eco'), pro=document.getElementById('scanmodel-pro');
+  if(!eco||!pro) return;
+  eco.className = 'btn' + (m==='eco' ? '' : ' outline'); pro.className = 'btn' + (m==='pro' ? '' : ' outline');
+}
+document.getElementById('scanmodel-eco').addEventListener('click', ()=>{ try{ localStorage.setItem('noah-note-scan-mode','eco'); }catch(_){} scanModelUI(); showToast('절약 모드로 스캔해요'); });
+document.getElementById('scanmodel-pro').addEventListener('click', ()=>{ try{ localStorage.setItem('noah-note-scan-mode','pro'); }catch(_){} scanModelUI(); showToast('정확 모드로 스캔해요'); });
+scanModelUI();
 function scanErrText(e){
   const m = (e && e.message) || '';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return '서버에 연결하지 못했어요. 인터넷이나 배포를 확인하세요';
@@ -3446,7 +3467,7 @@ async function scanOne(file, prompt, maxTokens){
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: scanModel(),
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: blob.type || 'image/jpeg', data: base64 } },
