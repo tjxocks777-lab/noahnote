@@ -921,6 +921,7 @@
       <button id="mm-child">＋ 자식</button>
       <button id="mm-sib">＋ 형제</button>
       <button id="mm-parent">＋ 부모</button>
+      <button id="mm-join" title="선택한 칸에 다른 칸의 선을 합쳐 연결">🔗 합치기</button>
       <button id="mm-up">▲</button>
       <button id="mm-down">▼</button>
       <button id="mm-fold">접기</button>
@@ -2132,6 +2133,12 @@ function mmFind(node, id, parent){
   for(const c of node.ch){ const r = mmFind(c, id, node); if(r) return r; }
   return null;
 }
+function mmPrune(){
+  if(!MM.tree.links) return;
+  const ids = new Set(); (function w(n){ ids.add(n.id); n.ch.forEach(w); })(MM.tree);
+  MM.tree.links = MM.tree.links.filter(l=>ids.has(l.f) && ids.has(l.t));
+  if(!MM.tree.links.length) delete MM.tree.links;
+}
 function mmPush(){ MM.undo.push(mmClone(MM.tree)); if(MM.undo.length>40) MM.undo.shift(); }
 const MM_FONT = '500 15px "Noto Sans KR", sans-serif';
 const MM_FONT_B = '800 15px "Noto Sans KR", sans-serif';
@@ -2178,7 +2185,9 @@ function mmLayout(ctx){
   let ty = 16;
   roots.forEach(r=>{ place(r, ty); ty += r.sh + 34; });
   const W = x - GAPX + 16, H = ty - 34 + 16;
-  return { root: roots[0], roots, nodes, W, H };
+  const byId = {}; nodes.forEach(o=>{ byId[o.n.id] = o; });
+  const links = (MM.tree.links||[]).map(l=>({ f: byId[l.f], t: byId[l.t] })).filter(l=>l.f && l.t);
+  return { root: roots[0], roots, nodes, links, W, H };
 }
 function mmRR(ctx, x, y, w, h, r){
   ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
@@ -2197,6 +2206,13 @@ function mmDraw(ctx, L, selId){
       ctx.strokeStyle = k.color; ctx.lineWidth = 2.4; ctx.beginPath();
       ctx.moveTo(x1,y1); ctx.bezierCurveTo(mx,y1,mx,y2,x2,y2); ctx.stroke();
     });
+  });
+  // 합치기 연결선: 다른 칸에서 나온 선이 한 칸으로 모임
+  (L.links||[]).forEach(l=>{
+    const x1 = l.f.x+l.f.w, y1 = l.f.y+l.f.h/2, x2 = l.t.x, y2 = l.t.y+l.t.h/2, dx = Math.max(40, Math.abs(x2-x1)/2);
+    ctx.strokeStyle = l.f.color; ctx.lineWidth = 2.4; ctx.setLineDash([7,4]); ctx.beginPath();
+    ctx.moveTo(x1,y1); ctx.bezierCurveTo(x1+dx,y1,x2-dx,y2,x2,y2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = l.f.color; ctx.beginPath(); ctx.arc(x2,y2,3.5,0,Math.PI*2); ctx.fill();
   });
   L.nodes.forEach(o=>{
     const isRoot = o.depth===0;
@@ -2249,6 +2265,9 @@ function mmSyncBar(){
   neEl('mm-up').disabled = !(idx>0);
   neEl('mm-down').disabled = !(f && f.parent && idx<f.parent.ch.length-1);
   neEl('mm-parent').disabled = !node;
+  neEl('mm-join').disabled = !node;
+  neEl('mm-join').textContent = MM.joinTo ? '합치기 취소' : '🔗 합치기';
+  neEl('mm-join').classList.toggle('on', !!MM.joinTo);
   ['mm-wdn','mm-wup','mm-hdn','mm-hup','mm-size0','mm-bold','mm-nl'].forEach(id=>{ neEl(id).disabled = !node; });
   neEl('mm-bold').classList.toggle('on', !!(node && node.b));
   neEl('mm-tcolors').querySelectorAll('.mm-sw').forEach(b=>b.classList.toggle('active', (b.dataset.c||'')===(node && node.tc || '')));
@@ -2260,7 +2279,7 @@ function mmSyncBar(){
   neEl('mm-colors').style.display = node && !isRoot ? 'flex' : 'none';
 }
 function mmOpen(attId){
-  MM.editId = attId || null; MM.undo = [];
+  MM.editId = attId || null; MM.undo = []; MM.joinTo = null;
   const a = attId && NE.att.find(x=>x.id===attId);
   const base = a && a.mm ? mmClone(a.mm) : mmNew('');
   MM.tree = base.hidden ? base : { id:'sr'+Date.now().toString(36), t:'', hidden:true, ch:[base] };
@@ -2313,6 +2332,7 @@ async function mmFinish(){
   const tree = MM.tree;
   if(tree.ch.every(r=>!r.t.trim() && !r.ch.length)){ neEl('mm-editor').style.display = 'none'; return; }   // 아무것도 안 썼으면 취소
   tree.ch.forEach(r=>{ if(!r.t.trim()) r.t = '주제'; });
+  mmPrune();
   neEl('mm-done').disabled = true;
   try{
     const out = await mmRenderPng(tree);
@@ -2357,6 +2377,20 @@ async function mmFinish(){
   neEl('mm-canvas').addEventListener('click', e=>{
     const r = neEl('mm-canvas').getBoundingClientRect(), x = e.clientX-r.left, y = e.clientY-r.top;
     const hit = MM.layout && MM.layout.nodes.slice().reverse().find(o=>x>=o.x-4 && x<=o.x+o.w+4 && y>=o.y-4 && y<=o.y+o.h+4);
+    if(MM.joinTo){
+      const to = MM.joinTo; MM.joinTo = null;
+      if(hit && hit.n.id!==to){
+        const tf = mmFind(MM.tree, to);
+        if(tf && tf.parent && tf.parent.id===hit.n.id){ showToast('이미 바로 위 부모로 연결돼 있어요'); }
+        else {
+          mmPush(); MM.tree.links = MM.tree.links || [];
+          const i = MM.tree.links.findIndex(l=>l.f===hit.n.id && l.t===to);
+          if(i>=0){ MM.tree.links.splice(i,1); showToast('합치기 연결을 해제했어요'); }
+          else { MM.tree.links.push({ f: hit.n.id, t: to }); showToast('합쳤어요'); }
+        }
+      }
+      MM.sel = to; mmRender(); return;
+    }
     MM.sel = hit ? hit.n.id : null; mmRender();
     if(hit){ const ti = neEl('mm-text'); ti.focus(); ti.select(); }
   });
@@ -2387,7 +2421,7 @@ async function mmFinish(){
     const f = MM.sel && mmFind(MM.tree, MM.sel); if(!f || !f.parent) return;
     if(f.parent.hidden && f.parent.ch.length<=1) return;
     const n = (function cnt(x){ return 1 + x.ch.reduce((s,c)=>s+cnt(c),0); })(f.node);
-    const go = ()=>{ mmPush(); const i = f.parent.ch.indexOf(f.node); f.parent.ch.splice(i,1); MM.sel = f.parent.hidden ? f.parent.ch[Math.max(0,i-1)].id : f.parent.id; mmRender(); };
+    const go = ()=>{ mmPush(); const i = f.parent.ch.indexOf(f.node); f.parent.ch.splice(i,1); mmPrune(); MM.sel = f.parent.hidden ? f.parent.ch[Math.max(0,i-1)].id : f.parent.id; mmRender(); };
     if(n>1) showConfirmModal(`이 칸과 아래 가지 ${n}개를 삭제할까요?`, go); else go();
   });
   neEl('mm-undo').addEventListener('click', ()=>{
@@ -2437,6 +2471,13 @@ async function mmFinish(){
     if(f.node.c) P.c = f.node.c;
     MM.sel = P.id; mmRender();
     const ti = neEl('mm-text'); ti.value = ''; ti.focus();
+  });
+  neEl('mm-join').addEventListener('click', ()=>{
+    if(MM.joinTo){ MM.joinTo = null; mmRender(); return; }
+    if(!MM.sel) return;
+    MM.joinTo = MM.sel; mmRender();
+    try{ neEl('mm-text').blur(); }catch(_){}
+    showToast('이 칸으로 합칠 칸(선이 나올 칸)을 터치하세요. 이미 합친 칸을 누르면 해제돼요');
   });
   neEl('mm-done').addEventListener('click', mmFinish);
   neEl('ne-mm-btn').addEventListener('click', ()=>mmOpen(null));
