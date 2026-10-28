@@ -270,6 +270,20 @@
   .btn.outline{background:transparent;color:var(--ink);}
   .btn.red{background:var(--red);border-color:var(--red);}
   .btn.amber{background:#C98A1B;border-color:#C98A1B;}
+  #grp-view{display:none;position:fixed;inset:0;z-index:190;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
+  #grp-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 40px;}
+  .gr-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);}
+  .gr-row:first-of-type{border-top:none;}
+  .gr-row.me{background:rgba(201,138,27,.12);margin:0 -8px;padding:10px 8px;}
+  .gr-rk{width:26px;font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:center;}
+  .gr-nm{flex:1;min-width:0;}
+  .gr-nm b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gr-nm span{font-size:11.5px;color:var(--ink-soft);}
+  .gr-v{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;}
+  .gr-mini{display:flex;align-items:flex-end;gap:2px;height:22px;}
+  .gr-mini i{display:block;width:6px;background:var(--ink);min-height:1px;}
+  .gr-warn{color:var(--red);font-weight:700;}
+
   .pf-row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;}
   .pf-row button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;}
   .pf-row button.on{background:var(--ink);color:var(--on-ink);border-color:var(--ink);}
@@ -741,6 +755,7 @@
 
     <div class="btn-row" style="margin-top:28px;">
       <button class="btn" id="stats-open-btn">📊 학습 통계 · 목표</button>
+      <button class="btn outline" id="grp-open-btn">👥 스터디 · 학원 그룹</button>
       <button class="btn outline" id="cat-summary-toggle-btn">카테고리별 진행상황 보기</button>
       <button class="btn outline" id="history-toggle-btn">날짜별 복습 기록 보기</button>
     </div>
@@ -1029,6 +1044,16 @@
       <div id="trash-list"></div>
     </div>
 
+    <div class="settings-block" id="deck-block">
+      <h3>문제집 공유 링크</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">내가 만든 문제와 노트를 링크 하나로 친구에게 보낼 수 있어요. 받은 사람은 자기 앱에 추가해요. 문제·노트의 글만 전달되고, 학습 기록·사진·손글씨는 포함되지 않아요.</p>
+      <div class="field" style="margin-bottom:10px;"><label>공유할 분류</label><select id="deck-cat"></select></div>
+      <div class="field" style="margin-bottom:10px;"><label>문제집 이름</label><input type="text" id="deck-title" maxlength="40" placeholder="예: 토익 Part1 사진묘사"></div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 0 10px;"><input type="checkbox" id="deck-notes" checked> 같은 분류의 요점 노트(글)도 포함</label>
+      <div class="btn-row"><button class="btn" id="deck-make">링크 만들기</button></div>
+      <div id="deck-out" style="margin-top:10px;"></div>
+    </div>
+
     <div class="settings-block" id="dedupe-block">
       <h3>중복 문제 정리</h3>
       <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">같은 분류에 똑같은 문제가 여러 개 있으면 학습 기록이 가장 많은 하나만 남기고 합쳐요. 정리하기 전에 자동으로 백업해요.</p>
@@ -1091,6 +1116,16 @@
     <span style="width:64px;"></span>
   </div>
   <div id="ai-body"></div>
+</div>
+
+<!-- 스터디·학원 그룹 -->
+<div id="grp-view">
+  <div class="ne-top">
+    <button class="ne-done" id="grp-close">← 닫기</button>
+    <span class="ne-heading">스터디 · 학원 그룹</span>
+    <span style="width:64px;"></span>
+  </div>
+  <div id="grp-body"></div>
 </div>
 
 <!-- 학습 통계 -->
@@ -3552,6 +3587,7 @@ function renderStatStrip(){
   try{ renderBlankStudy(); }catch(e){ console.error(e); }
   try{ renderGoalChip(); }catch(e){ console.error(e); }
   try{ updateBadgeAndPing(); }catch(e){ console.error(e); }
+  try{ groupReportSoon(); }catch(e){ console.error(e); }
 }
 
 function renderWrongQuestions(){
@@ -4238,6 +4274,201 @@ async function czImportPdf(file){
     }});
   });
 })();
+
+/* ---------- 문제집 공유 링크 · 스터디/학원 그룹 ---------- */
+async function sha256Hex(str){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function apiJson(url, opt){
+  const r = await fetch(url, opt); let d = null; try{ d = await r.json(); }catch(_){}
+  if(!r.ok){ const e = new Error((d && d.error) || ('서버 응답 '+r.status)); e.status = r.status; throw e; }
+  return d;
+}
+const apiPost = (url, body)=>apiJson(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+
+/* 문제집 공유 */
+function deckUi(){
+  const sel = document.getElementById('deck-cat'); if(!sel) return;
+  const cats = {}; data.questions.forEach(q=>{ if(q.src==='blank') return; const c=q.part||'기타'; cats[c]=(cats[c]||0)+1; });
+  sel.innerHTML = '<option value="">전체</option>' + Object.keys(cats).sort(naturalCompare).map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)} (${cats[c]}개)</option>`).join('');
+  sel.onchange = ()=>{ document.getElementById('deck-title').value = sel.value || ''; };
+}
+document.getElementById('deck-make').addEventListener('click', async ()=>{
+  const cat = document.getElementById('deck-cat').value, out = document.getElementById('deck-out');
+  const items = data.questions.filter(q=>q.src!=='blank' && (!cat || (q.part||'기타')===cat)).map(q=>({ part:q.part||'기타', question:q.question, answer:q.answer, explanation:q.explanation||'', choices:q.choices||null }));
+  const notes = document.getElementById('deck-notes').checked ? data.notes.filter(n=>!cat || n.part===cat).map(n=>({ part:n.part, title:n.title, content:n.content||'' })) : [];
+  if(!items.length && !notes.length){ showToast('공유할 내용이 없어요'); return; }
+  if(items.length>600) showToast('문제가 많아서 앞 600개만 공유돼요');
+  out.innerHTML = '<div class="st-note" style="margin:0;">링크를 만드는 중...</div>';
+  try{
+    const r = await apiPost('/api/share', { title: document.getElementById('deck-title').value.trim() || cat || data.settings.deckTitle || currentSubject, items, notes });
+    const link = location.origin + '/?deck=' + r.id;
+    out.innerHTML = `<div class="st-line" style="word-break:break-all;">${escapeHtml(link)}</div><div class="st-note">문제 ${Math.min(items.length,600)}개 · 노트 ${Math.min(notes.length,30)}개 (링크는 계속 유지돼요)</div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn" id="deck-copy">링크 복사</button>${navigator.share?'<button class="btn outline" id="deck-share">공유하기</button>':''}</div>`;
+    out.querySelector('#deck-copy').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(link); showToast('링크를 복사했어요'); }catch(_){ showToast('복사하지 못했어요. 링크를 직접 눌러 복사하세요'); } });
+    const sb = out.querySelector('#deck-share'); if(sb) sb.addEventListener('click', ()=>navigator.share({ title:'NOAH NOTE 문제집', url:link }).catch(()=>{}));
+  }catch(e){ out.innerHTML = `<div class="st-note" style="margin:0;">링크를 만들지 못했어요. 원인: ${escapeHtml(e.message)}</div>`; }
+});
+async function deckImport(id){
+  const body = aiPanel('공유받은 문제집');
+  body.innerHTML = '<div class="st-note">불러오는 중...</div>';
+  let d; try{ d = await apiJson('/api/share?id='+encodeURIComponent(id)); }catch(e){ body.innerHTML = '<div class="st-note">문제집을 찾을 수 없어요. 링크가 맞는지 확인해주세요.</div>'; return; }
+  body.innerHTML = `<div class="st-card"><p class="st-h">${escapeHtml(d.title||'문제집')}</p><div class="st-line">문제 <b>${(d.items||[]).length}</b>개 · 노트 <b>${(d.notes||[]).length}</b>개</div>
+    <div class="st-note">현재 과목(${escapeHtml(currentSubject||'')})에 추가해요. 이미 있는 문제는 건너뛰어요.</div>
+    <div class="btn-row" style="margin-top:10px;"><button class="btn" id="deck-add">내 앱에 추가</button></div></div>`;
+  body.querySelector('#deck-add').addEventListener('click', async ()=>{
+    const have = new Set(data.questions.map(q=>(q.part||'')+'||'+q.question)); let add = 0, k = 0;
+    (d.items||[]).forEach(q=>{ const part = q.part||'기타'; if(have.has(part+'||'+q.question)) return; have.add(part+'||'+q.question);
+      data.questions.push({ id:'s_'+Date.now()+'_'+(k++)+'_'+Math.floor(Math.random()*10000), type:q.choices?undefined:'memo', part, question:q.question, choices:q.choices||null, answer:q.answer, explanation:q.explanation||'', box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr(), src:'shared' }); add++; });
+    let nn = 0; const haveN = new Set(data.notes.map(n=>n.part+'||'+n.title));
+    (d.notes||[]).forEach(n=>{ if(haveN.has(n.part+'||'+n.title)) return; data.notes.push({ id:'n_'+Date.now()+'_'+(nn++)+'_'+Math.floor(Math.random()*1000), part:n.part||'기타', title:n.title, content:n.content||'', createdAt:todayStr(), att:[] }); });
+    await saveData(); renderStatStrip(); startSession(); renderCatSummary(); try{ renderNotesListView(); }catch(_){}
+    document.getElementById('aipanel').style.display = 'none'; showToast(`문제 ${add}개, 노트 ${nn}개를 추가했어요`);
+  });
+}
+function linkIntake(){
+  const q = new URLSearchParams(location.search);
+  const deck = q.get('deck'), grp = q.get('group');
+  if(!deck && !grp) return;
+  try{ history.replaceState(null, '', location.pathname); }catch(_){}
+  if(deck && /^[a-z2-9]{8}$/.test(deck)) deckImport(deck);
+  else if(grp && /^[A-Z2-9]{6}$/i.test(grp)) openGroup(grp.toUpperCase());
+}
+
+/* 그룹 */
+const GRP_KEY = 'noah-note-group';
+function grpGet(){ try{ return JSON.parse(localStorage.getItem(GRP_KEY)||'null'); }catch(_){ return null; } }
+function grpSet(o){ try{ if(o) localStorage.setItem(GRP_KEY, JSON.stringify(o)); else localStorage.removeItem(GRP_KEY); }catch(_){} }
+function statsAll(){
+  const t = todayStr(), dayMap = {}; let mastered = 0, total = 0, due = 0;
+  Object.keys(allSubjects).forEach(k=>{
+    const sd = (k===currentSubject) ? data : allSubjects[k];
+    (sd.questions||[]).forEach(q=>{ total++; if(q.mastered) mastered++; if(q.nextReviewDate<=t) due++; });
+    Object.keys(sd.history||{}).forEach(d=>{ const e = dayMap[d] = dayMap[d] || {done:0,correct:0}; Object.values(sd.history[d]).forEach(c=>{ e.done += c.done; e.correct += c.correct; }); });
+  });
+  let streak = 0, cur = t; if(!(dayMap[cur] && dayMap[cur].done)) cur = addDays(cur,-1);
+  while(dayMap[cur] && dayMap[cur].done){ streak++; cur = addDays(cur,-1); }
+  let weekTotal = 0, weekCorrect = 0; const recent = {};
+  for(let i=0;i<14;i++){ const d = addDays(t,-i), e = dayMap[d]; if(e){ recent[d] = e; if(i<7){ weekTotal += e.done; weekCorrect += e.correct; } } }
+  const td = dayMap[t] || {done:0,correct:0};
+  return { day:t, today:td.done, todayCorrect:td.correct, weekTotal, weekCorrect, streak, mastered, total, due, recent };
+}
+let grpLast = 0, grpTimer = null;
+async function groupReport(){
+  const g = grpGet(); if(!g) return; grpLast = Date.now();
+  try{ await apiPost('/api/group', { action:'report', code:g.code, id:g.id, stats:statsAll() }); }catch(e){ if(e.status===404){ /* 쫓겨났거나 그룹이 사라짐 */ } }
+}
+function groupReportSoon(){
+  if(!grpGet() || !syncHostOk()) return;
+  if(Date.now()-grpLast > 60000){ groupReport(); return; }
+  if(!grpTimer) grpTimer = setTimeout(()=>{ grpTimer = null; groupReport(); }, 30000);
+}
+function openGroup(prefillCode){
+  document.getElementById('grp-view').style.display = 'flex';
+  renderGroup(prefillCode);
+}
+document.getElementById('grp-close').addEventListener('click', ()=>{ document.getElementById('grp-view').style.display = 'none'; });
+document.getElementById('grp-open-btn').addEventListener('click', ()=>openGroup());
+function grpErr(e){ return e && e.message ? e.message : '알 수 없는 오류'; }
+async function renderGroup(prefillCode){
+  const body = document.getElementById('grp-body'), g = grpGet();
+  if(!syncHostOk()){ body.innerHTML = '<div class="st-card"><div class="st-note" style="margin:0;">그룹 기능은 netlify.app 주소로 열었을 때만 쓸 수 있어요.</div></div>'; return; }
+  if(!g){
+    body.innerHTML = `<div class="st-card"><p class="st-h">그룹에 참가하기</p><div class="st-form">
+        <input type="text" id="gj-code" maxlength="6" placeholder="그룹 코드 6자리" value="${escapeAttr(prefillCode||'')}" style="text-transform:uppercase;">
+        <input type="text" id="gj-nick" maxlength="12" placeholder="내 닉네임 (최대 12자)">
+        <div class="btn-row"><button class="btn" id="gj-go">참가</button></div><div class="st-note" id="gj-err"></div></div></div>
+      <div class="st-card"><p class="st-h">새 그룹 만들기</p><div class="st-form">
+        <div class="ai-opt" id="gc-kind"><button data-v="study" class="on">스터디 친구 (순위표)</button><button data-v="class">학원 반 (선생님 대시보드)</button></div>
+        <input type="text" id="gc-name" maxlength="24" placeholder="그룹 이름 (예: 토익 스터디)">
+        <input type="text" id="gc-nick" maxlength="12" placeholder="내 닉네임">
+        <input type="password" id="gc-pass" placeholder="관리자 암호 8자 이상" style="display:none;" autocomplete="off">
+        <div class="st-note" id="gc-help" style="margin:0 0 8px;">친구들이 코드로 들어오면 서로의 학습량 순위를 볼 수 있어요.</div>
+        <div class="btn-row"><button class="btn" id="gc-go">만들기</button></div><div class="st-note" id="gc-err"></div></div></div>
+      <div class="st-note">그룹에는 닉네임과 학습 횟수·정답률 같은 통계만 전달돼요. 문제·노트 내용은 전달되지 않아요.</div>`;
+    let kind = 'study';
+    body.querySelectorAll('#gc-kind button').forEach(b=>b.addEventListener('click', ()=>{
+      kind = b.dataset.v; body.querySelectorAll('#gc-kind button').forEach(x=>x.classList.toggle('on', x===b));
+      body.querySelector('#gc-pass').style.display = kind==='class' ? 'block' : 'none';
+      body.querySelector('#gc-help').textContent = kind==='class' ? '선생님(관리자)은 학생별 학습 현황을 대시보드로 볼 수 있어요. 학생들은 서로의 기록을 보지 못해요. 관리자 암호를 잊으면 복구할 수 없어요.' : '친구들이 코드로 들어오면 서로의 학습량 순위를 볼 수 있어요.';
+    }));
+    body.querySelector('#gj-go').addEventListener('click', async ()=>{
+      const code = body.querySelector('#gj-code').value.trim().toUpperCase(), nick = body.querySelector('#gj-nick').value.trim();
+      try{ const r = await apiPost('/api/group', { action:'join', code, nick }); grpSet({ code, id:r.id, nick:r.nick, name:r.name, kind:r.kind }); await groupReport(); renderGroup(); }
+      catch(e){ body.querySelector('#gj-err').textContent = grpErr(e); }
+    });
+    body.querySelector('#gc-go').addEventListener('click', async ()=>{
+      const name = body.querySelector('#gc-name').value.trim(), nick = body.querySelector('#gc-nick').value.trim(), pass = body.querySelector('#gc-pass').value;
+      if(kind==='class' && pass.length<8){ body.querySelector('#gc-err').textContent = '관리자 암호를 8자 이상 입력하세요'; return; }
+      try{
+        const ph = kind==='class' ? await sha256Hex('noah-group:'+pass) : '';
+        const r = await apiPost('/api/group', { action:'create', name, nick, kind, ph });
+        grpSet({ code:r.code, id:r.id, nick, name:r.name, kind:r.kind, ph:ph||undefined }); await groupReport(); renderGroup();
+      }catch(e){ body.querySelector('#gc-err').textContent = grpErr(e); }
+    });
+    return;
+  }
+  body.innerHTML = '<div class="st-note">불러오는 중...</div>';
+  const link = location.origin + '/?group=' + g.code;
+  const head = `<div class="st-card"><p class="st-h">${g.kind==='class'?'🏫':'👥'} ${escapeHtml(g.name)} · 내 닉네임 ${escapeHtml(g.nick)}</p>
+      <div class="st-line">그룹 코드 <b style="font-family:'IBM Plex Mono',monospace;font-size:18px;letter-spacing:2px;">${g.code}</b></div>
+      <div class="btn-row" style="margin-top:8px;gap:8px;"><button class="btn outline" id="gr-copy" style="padding:8px 12px;font-size:13px;">초대 링크 복사</button><button class="btn outline" id="gr-refresh" style="padding:8px 12px;font-size:13px;">새로고침</button></div></div>`;
+  let main = '';
+  try{
+    await groupReport();
+    if(g.kind==='class' && !g.ph){
+      const me = statsAll();
+      main = `<div class="st-card"><p class="st-h">내 학습 현황 (선생님이 확인해요)</p><div class="st-big"><div><b>${me.today}</b>오늘</div><div><b>${me.weekTotal}</b>최근 7일</div><div><b>${me.streak}일</b>연속</div><div><b>${me.mastered}</b>숙달</div></div></div>
+        <div class="st-note">앱을 열고 복습하면 자동으로 선생님에게 학습 횟수가 전달돼요. 다른 학생의 기록은 보이지 않아요.</div>`;
+    } else if(g.kind==='class'){
+      const d = await apiJson(`/api/group?action=admin&code=${g.code}&ph=${g.ph}`);
+      main = adminDashHtml(d, g.id);
+    } else {
+      const d = await apiJson(`/api/group?action=board&code=${g.code}&me=${g.id}`);
+      main = boardHtml(d, boardKey);
+    }
+  }catch(e){
+    if(e.status===403 || e.status===404){ main = `<div class="st-card"><div class="st-note" style="margin:0;">이 그룹에서 나가졌거나 그룹이 사라졌어요. (${escapeHtml(grpErr(e))})</div><div class="btn-row" style="margin-top:8px;"><button class="btn outline" id="gr-leave-local">그룹 정보 지우기</button></div></div>`; }
+    else main = `<div class="st-card"><div class="st-note" style="margin:0;">불러오지 못했어요. 인터넷을 확인하세요. (${escapeHtml(grpErr(e))})</div></div>`;
+  }
+  const foot = `<div class="btn-row" style="margin-top:14px;gap:8px;">${g.kind==='class'&&!g.ph?'<input type="password" id="gr-pass" placeholder="관리자 암호" autocomplete="off" style="padding:10px 12px;border:1px solid var(--line);font:inherit;font-size:14px;background:var(--card);color:var(--ink);min-width:140px;"><button class="btn outline" id="gr-admin">관리자로 보기</button>':''}<button class="btn outline" id="gr-leave">그룹 나가기</button></div>`;
+  body.innerHTML = head + main + foot;
+  body.querySelector('#gr-copy').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(`NOAH NOTE 그룹 "${g.name}" 에 참가하세요!\n코드: ${g.code}\n${link}`); showToast('초대 링크를 복사했어요'); }catch(_){ showToast('복사하지 못했어요'); } });
+  body.querySelector('#gr-refresh').addEventListener('click', ()=>renderGroup());
+  const lv = body.querySelector('#gr-leave'); lv.addEventListener('click', ()=>showConfirmModal('그룹에서 나갈까요?', async ()=>{ try{ await apiPost('/api/group', { action:'leave', code:g.code, id:g.id }); }catch(_){} grpSet(null); renderGroup(); }, null, '나가기', '취소'));
+  const ll = body.querySelector('#gr-leave-local'); if(ll) ll.addEventListener('click', ()=>{ grpSet(null); renderGroup(); });
+  const ad = body.querySelector('#gr-admin'); if(ad) ad.addEventListener('click', async ()=>{
+    const pass = body.querySelector('#gr-pass').value; if(!pass){ showToast('관리자 암호를 입력하세요'); return; }
+    g.ph = await sha256Hex('noah-group:'+pass); grpSet(g); renderGroup();
+  });
+  body.querySelectorAll('.gr-tab').forEach(b=>b.addEventListener('click', ()=>{ boardKey = b.dataset.k; renderGroup(); }));
+  body.querySelectorAll('.gr-kick').forEach(b=>b.addEventListener('click', ()=>showConfirmModal(`${b.dataset.n} 님을 그룹에서 내보낼까요?`, async ()=>{ try{ await apiPost('/api/group', { action:'kick', code:g.code, id:b.dataset.id, ph:g.ph }); showToast('내보냈어요'); }catch(e){ showToast(grpErr(e)); } renderGroup(); }, null, '내보내기', '취소')));
+  const csv = body.querySelector('#gr-csv'); if(csv) csv.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(window.__grpCsv||''); showToast('표를 복사했어요 (엑셀에 붙여넣기)'); }catch(_){ showToast('복사하지 못했어요'); } });
+}
+let boardKey = 'week';
+function boardHtml(d, key){
+  const rows = (d.members||[]).slice().sort((a,b)=> (b[key]||0)-(a[key]||0) || b.week-a.week);
+  const act = Date.now();
+  const tabs = [['today','오늘'],['week','최근 7일'],['streak','연속 학습']].map(t=>`<button data-k="${t[0]}" class="gr-tab ${key===t[0]?'on':''}">${t[1]}</button>`).join('');
+  return `<div class="st-card"><p class="st-h">순위표 · ${d.members.length}명</p><div class="ai-opt">${tabs}</div>`
+    + rows.map((m,i)=>`<div class="gr-row ${m.me?'me':''}"><div class="gr-rk">${i===0&&(m[key]||0)>0?'👑':i+1}</div><div class="gr-nm"><b>${escapeHtml(m.nick)}${m.me?' (나)':''}</b><span>오늘 ${m.today}문제 · 연속 ${m.streak}일 · 숙달 ${m.mastered}</span></div><div class="gr-v">${m[key]||0}${key==='streak'?'일':''}</div></div>`).join('') + '</div>';
+}
+function adminDashHtml(d, selfId){
+  const t = todayStr(), days7 = []; for(let i=6;i>=0;i--) days7.push(addDays(t,-i));
+  const rows = (d.members||[]).filter(m=>m.id!==selfId).map(m=>{
+    const week = days7.map(x=>(m.days&&m.days[x]?m.days[x].done:0)), done = week.reduce((a,b)=>a+b,0), cor = days7.reduce((a,x)=>a+(m.days&&m.days[x]?m.days[x].correct:0),0);
+    const lastStudy = Object.keys(m.days||{}).filter(x=>m.days[x].done>0).sort().pop() || '';
+    const idle = lastStudy ? Math.round((new Date(t+'T00:00:00')-new Date(lastStudy+'T00:00:00'))/864e5) : 999;
+    return Object.assign({}, m, { week, done, acc: done?Math.round(cor/done*100):null, idle, pct: m.total?Math.round((m.mastered||0)/m.total*100):0 });
+  }).sort((a,b)=>b.idle-a.idle);
+  const active = rows.filter(r=>r.idle===0).length, lazy = rows.filter(r=>r.idle>=3).length, withAcc = rows.filter(r=>r.acc!==null), avg = withAcc.length ? Math.round(withAcc.reduce((a,r)=>a+r.acc,0)/withAcc.length) : null;
+  window.__grpCsv = ['닉네임\t마지막 학습\t오늘\t최근7일\t정답률(%)\t연속일\t숙달률(%)'].concat(rows.map(r=>[r.nick, (r.idle>=999?'-':addDays(t,-r.idle)), r.today||0, r.done, r.acc===null?'':r.acc, r.streak||0, r.pct].join('\t'))).join('\n');
+  const mx = Math.max(1, ...rows.flatMap(r=>r.week));
+  return `<div class="st-card"><p class="st-h">반 현황 · ${rows.length}명</p><div class="st-big"><div><b>${active}</b>오늘 학습</div><div><b class="${lazy?'gr-warn':''}">${lazy}</b>3일↑ 미학습</div><div><b>${avg===null?'-':avg+'%'}</b>평균 정답률</div></div></div>
+    <div class="st-card"><p class="st-h">학생별 진도 (오래 안 한 순)</p>`
+    + rows.map(r=>`<div class="gr-row"><div class="gr-nm"><b>${escapeHtml(r.nick)} ${r.idle>=3?'<span class="gr-warn">⚠ '+(r.idle>=999?'기록 없음':r.idle+'일째 쉬는 중')+'</span>':''}</b><span>오늘 ${r.today||0} · 7일 ${r.done}문제 · 정답률 ${r.acc===null?'-':r.acc+'%'} · 연속 ${r.streak||0}일 · 숙달 ${r.pct}%</span></div>
+      <div class="gr-mini">${r.week.map(v=>`<i style="height:${Math.max(1,Math.round(v/mx*22))}px;${v?'':'opacity:.2'}"></i>`).join('')}</div>
+      <button class="btn outline gr-kick" data-id="${r.id}" data-n="${escapeAttr(r.nick)}" style="padding:4px 8px;font-size:11px;">내보내기</button></div>`).join('')
+    + `<div class="btn-row" style="margin-top:10px;"><button class="btn outline" id="gr-csv">표 복사 (엑셀용)</button></div></div>`;
+}
 
 /* ---------- 휴지통 · 자동 스냅샷 · 중복 정리 ---------- */
 const TRASH_DAYS = 30;
@@ -5570,7 +5801,7 @@ document.getElementById('cat-summary-toggle-btn').addEventListener('click', ()=>
 
 function renderSettingsPanel(){
   backupLastText();
-  try{ renderSnaps(); renderTrash(); }catch(e){ console.error(e); }
+  try{ renderSnaps(); renderTrash(); deckUi(); }catch(e){ console.error(e); }
   document.getElementById('s-wrong').value = data.settings.wrongDays;
   document.getElementById('s-mlimit').value = data.settings.masteredLimit;
   document.getElementById('s-limit').value = data.settings.dailyLimit;
@@ -5689,7 +5920,7 @@ function selectSubject(name){
   setInputType('quiz');
   saveData();
   try{ prefsUi(); }catch(e){}
-  setTimeout(()=>{ try{ sharedIntake(); }catch(e){ console.error(e); } }, 300);
+  setTimeout(()=>{ try{ sharedIntake(); linkIntake(); }catch(e){ console.error(e); } }, 300);
 }
 
 let dataReady = false;
