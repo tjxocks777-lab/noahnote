@@ -1100,6 +1100,7 @@
       <button id="mm-nl">줄바꿈</button>
       <span id="mm-tcolors" style="display:flex;gap:6px;align-items:center;"></span>
     </div>
+    <div class="mm-row" id="mm-fills"></div>
     <div class="mm-row" id="mm-colors"></div>
     <div class="mm-row">
       <span class="ne-label">암기</span>
@@ -2386,7 +2387,9 @@ function neRemoveAtt(id){
 }
 /* ----- 마인드맵: 노드를 입력해 가지를 늘리고, 그림(PNG)으로 만들어 필기 위쪽에 삽입 (펜 필기를 위에 덧쓸 수 있음) ----- */
 const MM_COLORS = ['#2F6FDE','#D64545','#2E9E5B','#F08A24','#7B4FD6','#E0589B','#16A5A5','#8A6D3B'];
-const MM = { tree:null, sel:null, editId:null, undo:[], layout:null, scale:1 };
+const MM_FILLS = ['#FFFFFF','#E5E8EE','#FFD9D9','#FFE2C2','#D5F2DF','#CFEFEF','#D6E4FF','#E6DBFB','#FAD6E8','#16233F','#2F6FDE','#D64545','#2E9E5B','#F08A24'];
+function mmDark(hex){ const n = parseInt(String(hex).slice(1),16), r=n>>16, g=(n>>8)&255, b=n&255; return (0.299*r + 0.587*g + 0.114*b) < 150; }
+const MM = { tree:null, sel:null, editId:null, undo:[], layout:null, scale:1, fillSub:false };
 function mmNew(t){ return { id:'n'+Date.now().toString(36)+Math.floor(Math.random()*1e5).toString(36), t:t||'', ch:[] }; }
 function mmClone(t){ return JSON.parse(JSON.stringify(t)); }
 function mmFind(node, id, parent){
@@ -2562,7 +2565,8 @@ function mmDraw(ctx, L, selId, opts){
     const isRoot = o.depth===0;
     const hidden = !!(hideSet && o.n.bl && hideSet.has(o.n.id));
     mmRR(ctx, o.x, o.y, o.w, o.h, 10);
-    ctx.fillStyle = hidden ? '#D5DBE6' : (o.n.bl ? '#FFF1A8' : (isRoot ? '#16233F' : mmTint(o.color, o.depth===1 ? 0.2 : 0.1)));
+    const own = (!hidden && !o.n.bl && o.n.f) ? o.n.f : null;          // 직접 고른 칸 색 (빈칸 표시·가리기 상태에서는 그쪽이 우선)
+    ctx.fillStyle = hidden ? '#D5DBE6' : (o.n.bl ? '#FFF1A8' : (own || (isRoot ? '#16233F' : mmTint(o.color, o.depth===1 ? 0.2 : 0.1))));
     ctx.fill();
     ctx.lineWidth = o.n.id===selId ? 3.2 : (o.n.bl ? 2.2 : 1.6);
     ctx.strokeStyle = o.n.id===selId ? '#16233F' : (hidden ? '#6B7789' : (o.n.bl ? '#D9A800' : (isRoot ? '#16233F' : o.color)));
@@ -2573,7 +2577,7 @@ function mmDraw(ctx, L, selId, opts){
       ctx.font = '800 20px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#5B6678';
       ctx.fillText('?', o.x+o.w/2, o.y+o.h/2);
     } else {
-      ctx.fillStyle = o.n.tc || ((isRoot && !o.n.bl) ? '#fff' : '#16233F');
+      ctx.fillStyle = o.n.tc || (own ? (mmDark(own) ? '#fff' : '#16233F') : ((isRoot && !o.n.bl) ? '#fff' : '#16233F'));
       const y0 = o.y + (o.h - o.lines.length*20)/2 + 10;
       o.lines.forEach((ln,i)=>ctx.fillText(ln, o.x+o.w/2, y0+i*20));
     }
@@ -2630,6 +2634,9 @@ function mmSyncBar(){
   neEl('mm-fold').disabled = !node || !node.ch.length;
   neEl('mm-fold').textContent = node && node.col ? '펼치기' : '접기';
   neEl('mm-undo').disabled = !MM.undo.length;
+  neEl('mm-fills').querySelectorAll('.mm-sw').forEach(b=>b.classList.toggle('active', (b.dataset.c||'')===(node && node.f || '')));
+  neEl('mm-fills').style.opacity = node ? '' : '.4';
+  neEl('mm-fillsub').classList.toggle('on', !!MM.fillSub);
   const cur = node && node.c || '';
   neEl('mm-colors').querySelectorAll('.mm-sw').forEach(b=>b.classList.toggle('active', (b.dataset.c||'')===cur));
   neEl('mm-colors').style.display = node && !isRoot ? 'flex' : 'none';
@@ -2795,6 +2802,19 @@ async function mmFinish(){
   sw.querySelectorAll('.mm-sw').forEach(b=>b.addEventListener('click', ()=>{
     const f = MM.sel && mmFind(MM.tree, MM.sel); if(!f || !f.parent) return;
     mmPush(); if(b.dataset.c) f.node.c = b.dataset.c; else delete f.node.c; mmRender();
+  }));
+  // 칸 색 (칸 안쪽 배경색). '하위 칸도'를 켜면 선택한 칸 아래 모든 칸에 한꺼번에 적용
+  const fl = neEl('mm-fills');
+  fl.innerHTML = '<span class="ne-label">칸 색</span>' +
+    `<button class="mm-sw" data-c="" style="background:#fff;font-size:11px;color:#16233F" title="자동">A</button>` +
+    MM_FILLS.map(c=>`<button class="mm-sw" data-c="${c}" style="background:${c}" aria-label="칸 색"></button>`).join('') +
+    `<button id="mm-fillsub" title="선택한 칸 아래의 모든 칸에도 같은 색 적용" style="border:1px solid var(--line);background:var(--card);padding:6px 9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--ink);white-space:nowrap;">하위 칸도</button>`;
+  neEl('mm-fillsub').addEventListener('click', ()=>{ MM.fillSub = !MM.fillSub; mmSyncBar(); });
+  fl.querySelectorAll('.mm-sw').forEach(b=>b.addEventListener('click', ()=>{
+    const f = MM.sel && mmFind(MM.tree, MM.sel); if(!f) return;
+    mmPush();
+    const set = n=>{ if(b.dataset.c) n.f = b.dataset.c; else delete n.f; if(MM.fillSub) (n.ch||[]).forEach(set); };
+    set(f.node); mmRender();
   }));
   neEl('mm-canvas').addEventListener('click', e=>{
     const r = neEl('mm-canvas').getBoundingClientRect(), x = e.clientX-r.left, y = e.clientY-r.top;
