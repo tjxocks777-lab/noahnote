@@ -890,9 +890,9 @@
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
-      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">사진 한 장 스캔할 때마다 API 요금이 나가요. 절약 모드는 정확 모드의 약 3분의 1 요금이에요 (대략 절약 장당 17원, 정확 장당 50원). 인쇄된 글자는 절약 모드로 충분하고, 손글씨나 작은 글자가 잘 안 읽히면 정확 모드로 바꾸세요.</p>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">사진 한 장 스캔할 때마다 API 요금이 나가요. 절약 모드는 정확 모드보다 훨씬 싸요 (대략 절약 장당 3~5원, 정확 장당 50원). 인쇄된 글자는 절약 모드로 충분하고, 손글씨나 작은 글자가 잘 안 읽히면 정확 모드로 바꾸세요.</p>
       <div class="btn-row" style="gap:8px;">
-        <button class="btn" id="scanmodel-eco">절약 (Haiku)</button>
+        <button class="btn" id="scanmodel-eco">절약 (Gemini)</button>
         <button class="btn outline" id="scanmodel-pro">정확 (Sonnet)</button>
       </div>
     </div>
@@ -3779,9 +3779,9 @@ function resetScan(){
 ['scan-file','scan-cam'].forEach(id=>{
   document.getElementById(id).addEventListener('change', e=>{ addScanFiles(e.target.files); e.target.value=''; });
 });
-const SCAN_MODELS = { eco:'claude-haiku-4-5-20251001', pro:'claude-sonnet-4-6' };
+const SCAN_MODELS = { eco:'gemini-3.1-flash-lite', pro:'claude-sonnet-4-6' };
 function scanMode(){ let m=null; try{ m=localStorage.getItem('noah-note-scan-mode'); }catch(_){} return m==='pro' ? 'pro' : 'eco'; }
-function scanModel(){ return SCAN_MODELS[scanMode()]; }
+function scanModel(){ const m = SCAN_MODELS[scanMode()]; return (/^gemini/.test(m) && SCAN_ENDPOINT.indexOf('/api/')!==0) ? 'claude-haiku-4-5-20251001' : m; }
 function scanModelUI(){
   const m = scanMode();
   const eco=document.getElementById('scanmodel-eco'), pro=document.getElementById('scanmodel-pro');
@@ -3795,7 +3795,7 @@ function scanErrText(e){
   const m = (e && e.message) || '';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return '서버에 연결하지 못했어요. 인터넷이나 배포를 확인하세요';
   if(e && e.scanStatus===404) return '스캔 서버가 배포되지 않았어요 (404)';
-  if(e && e.scanStatus===500 && /API_KEY/.test(m)) return 'Netlify에 ANTHROPIC_API_KEY가 설정되지 않았어요';
+  if(e && e.scanStatus===500 && /API_KEY/.test(m)) return 'Netlify에 '+(/GEMINI/.test(m)?'GEMINI_API_KEY':'ANTHROPIC_API_KEY')+'가 설정되지 않았어요';
   if(e && (e.scanStatus===401 || /authentication|x-api-key|invalid/i.test(m))) return 'API 키가 올바르지 않아요 ('+m+')';
   if(/credit|billing|balance/i.test(m)) return 'API 크레딧이 부족해요 ('+m+')';
   if(m.indexOf('JSON')>=0 || e instanceof SyntaxError) return '사진에서 내용을 읽지 못했어요. 더 선명한 사진으로 다시 시도하세요';
