@@ -2207,12 +2207,15 @@ function mmDraw(ctx, L, selId){
       ctx.moveTo(x1,y1); ctx.bezierCurveTo(mx,y1,mx,y2,x2,y2); ctx.stroke();
     });
   });
-  // 합치기 연결선: 다른 칸에서 나온 선이 한 칸으로 모임
+  // 합치기 연결선: 보통 가지와 똑같은 굵기·곡선으로, 여러 선이 한 점으로 모였다가 한 칸으로 들어감 (갈라지는 가지의 거울상)
   (L.links||[]).forEach(l=>{
-    const x1 = l.f.x+l.f.w, y1 = l.f.y+l.f.h/2, x2 = l.t.x, y2 = l.t.y+l.t.h/2, dx = Math.max(40, Math.abs(x2-x1)/2);
-    ctx.strokeStyle = l.f.color; ctx.lineWidth = 2.4; ctx.setLineDash([7,4]); ctx.beginPath();
-    ctx.moveTo(x1,y1); ctx.bezierCurveTo(x1+dx,y1,x2-dx,y2,x2,y2); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = l.f.color; ctx.beginPath(); ctx.arc(x2,y2,3.5,0,Math.PI*2); ctx.fill();
+    const x1 = l.f.x+l.f.w, y1 = l.f.y+l.f.h/2, x2 = l.t.x, y2 = l.t.y+l.t.h/2;
+    const mx = x2 - x1 >= 24 ? (x1+x2)/2 : null;
+    ctx.strokeStyle = l.f.color; ctx.lineWidth = 2.4; ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    if(mx!==null) ctx.bezierCurveTo(mx,y1,mx,y2,x2,y2);
+    else { const dx = Math.max(40, Math.abs(x2-x1)/2); ctx.bezierCurveTo(x1+dx,y1,x2-dx,y2,x2,y2); }
+    ctx.stroke();
   });
   L.nodes.forEach(o=>{
     const isRoot = o.depth===0;
