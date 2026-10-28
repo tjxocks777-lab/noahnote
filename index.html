@@ -315,6 +315,14 @@
   #stats-view{display:none;position:fixed;inset:0;z-index:190;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
   #st-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 40px;}
   .st-card{background:var(--card);border:1px solid var(--line);padding:14px;margin-bottom:12px;}
+  details.st-acc>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--ink-soft);}
+  details.st-acc>summary::-webkit-details-marker{display:none;}
+  details.st-acc>summary .sa-r{font-weight:400;font-size:12px;margin-left:auto;text-align:right;}
+  details.st-acc>summary::after{content:'▸';font-family:'IBM Plex Mono',monospace;font-size:12px;transition:transform .15s ease;}
+  details.st-acc[open]>summary::after{transform:rotate(90deg);}
+  details.st-acc[open]>summary{margin-bottom:12px;}
+  details.st-acc .cat-summary-row{background:var(--paper);padding:12px;}
+  details.st-acc .hist-day{background:var(--paper);}
   .st-h{font-size:12px;font-weight:700;color:var(--ink-soft);margin:0 0 10px;}
   .st-big{display:flex;gap:8px;}
   .st-big div{flex:1;text-align:center;font-size:11.5px;color:var(--ink-soft);}
@@ -754,14 +762,8 @@
     <div id="review-area"></div>
 
     <div class="btn-row" style="margin-top:28px;">
-      <button class="btn" id="stats-open-btn">📊 학습 통계 · 목표</button>
+      <button class="btn" id="stats-open-btn">📊 학습 통계 · 진행상황</button>
       <button class="btn outline" id="grp-open-btn">👥 스터디 · 학원 그룹</button>
-      <button class="btn outline" id="cat-summary-toggle-btn">카테고리별 진행상황 보기</button>
-      <button class="btn outline" id="history-toggle-btn">날짜별 복습 기록 보기</button>
-    </div>
-    <div id="history-area" style="display:none;margin-top:16px;"></div>
-    <div id="cat-summary-area" style="display:none;margin-top:16px;">
-      <div id="cat-summary"></div>
     </div>
   </section>
 
@@ -1132,7 +1134,7 @@
 <div id="stats-view">
   <div class="ne-top">
     <button class="ne-done" id="st-close">← 닫기</button>
-    <span class="ne-heading">학습 통계 · 목표</span>
+    <span class="ne-heading">학습 통계 · 진행상황</span>
     <span style="width:64px;"></span>
   </div>
   <div id="st-body"></div>
@@ -3640,25 +3642,15 @@ function logHistory(q, isCorrect, grade){
 }
 function renderHistory(){
   const el = document.getElementById('history-area');
+  if(!el) return;
   const h = data.history || {};
   const days = Object.keys(h).sort().reverse();
   if(!days.length){
     el.innerHTML = '<div class="empty">아직 기록이 없어요. 오늘 문제를 풀면 여기에 날짜별로 쌓여요.</div>'; return;
   }
   const sumDay = d=>Object.values(h[d]).reduce((a,e)=>({done:a.done+e.done, correct:a.correct+e.correct}),{done:0,correct:0});
-  // 연속 학습일 (오늘 아직 안 풀었으면 어제부터 셈)
-  let streak = 0, cur = todayStr();
-  if(!h[cur]) cur = addDays(cur, -1);
-  while(h[cur]){ streak++; cur = addDays(cur, -1); }
-  const weekStart = addDays(todayStr(), -6);
-  const week = days.filter(d=>d>=weekStart).reduce((s,d)=>s+sumDay(d).done, 0);
-  const total = days.reduce((s,d)=>s+sumDay(d).done, 0);
   const wd = ['일','월','화','수','목','금','토'];
-  el.innerHTML = `<div class="hist-sum">
-      <div><b>${streak}일</b>연속 학습</div>
-      <div><b>${week}</b>최근 7일 문제</div>
-      <div><b>${total}</b>누적 문제</div>
-    </div>` + days.slice(0, 60).map((d,i)=>{
+  el.innerHTML = days.slice(0, 60).map((d,i)=>{
     const s = sumDay(d), pct = s.done ? Math.round(s.correct/s.done*100) : 0;
     const dt = new Date(d+'T00:00:00');
     const label = `${dt.getMonth()+1}/${dt.getDate()} (${wd[dt.getDay()]})` + (d===todayStr() ? ' · 오늘' : '');
@@ -3669,11 +3661,10 @@ function renderHistory(){
     return `<details class="hist-day" ${i===0?'open':''}><summary><span>${label}</span><span class="hs">${s.done}문제 · 정답률 ${pct}%</span></summary><div class="hist-rows">${rows}</div></details>`;
   }).join('') + (days.length>60 ? '<div class="empty" style="padding:10px;">최근 60일까지만 보여줘요</div>' : '');
 }
-document.getElementById('history-toggle-btn').addEventListener('click', ()=>{
-  const area = document.getElementById('history-area');
-  const hidden = area.style.display === 'none' || area.style.display === '';
-  if(hidden){ renderHistory(); area.style.display = 'block'; } else area.style.display = 'none';
-});
+// 통계 화면의 접이식 카드(카테고리별 / 날짜별) 열림 상태 — 화면을 다시 그려도 유지
+const statsAcc = { cat:false, hist:false };
+const catSumOpen = new Set();
+function statsViewOpen(){ const v=document.getElementById('stats-view'); return !!v && v.style.display==='flex'; }
 
 function startSession(){
   clearTimeout(autoNextTimer);
@@ -4960,6 +4951,9 @@ function renderStatsView(){
   const mastered = data.questions.filter(q=>q.mastered).length, tg = goalTarget(), g = data.goal||{}, dl = daysToExam();
   const pace = (dl!==null && dl>0 && tg>mastered) ? `목표까지 하루 약 ${Math.ceil((tg-mastered)/dl)}개 숙달이 필요해요` : '';
   const weak = weakList();
+  const hAll = data.history || {}, hDays = Object.keys(hAll).filter(d=>Object.keys(hAll[d]||{}).length);
+  const hTotal = hDays.reduce((s,d)=>s+histDay(d).done, 0);
+  const catN = new Set(data.questions.map(q=>q.part||'기타')).size;
   body.innerHTML = `
   <div class="st-card"><div class="st-big">
     <div><b>${streak}일</b>연속 학습</div><div><b>${tdy.done}</b>오늘 푼 문제</div><div><b>${w1.done}</b>최근 7일</div><div><b>${mastered}</b>숙달</div></div></div>
@@ -4980,12 +4974,21 @@ function renderStatsView(){
     <div class="st-note">${msg}</div>
     <div class="btn-row" style="margin-top:10px;"><button class="btn outline" id="st-copy">요약 복사 (카톡 공유용)</button></div></div>
 
+  <details class="st-card st-acc" id="acc-hist" ${statsAcc.hist?'open':''}><summary><span>🗓 날짜별 복습 기록</span><span class="sa-r">${hDays.length?`${hDays.length}일 · 누적 ${hTotal}문제`:'기록 없음'}</span></summary><div id="history-area"></div></details>
+
   <div class="st-card"><p class="st-h">🔍 약점 분석 (최근 14일 + 틀린 문제 기준)</p>
     ${weak.length ? weak.map((e,i)=>`<div class="st-weak"><div class="nm">${i+1}. ${escapeHtml(e.cat)}</div>
       <div class="sb">${e.acc!==null?`정답률 ${Math.round(e.acc*100)}% (${e.done}문제) · `:''}틀린 문제 ${e.wrong}개 / 전체 ${e.n}개 · 숙달 ${e.m}개</div>
       <div class="st-pbar"><i style="width:${Math.round(Math.min(1,e.score)*100)}%"></i></div>
       <div class="btn-row" style="margin-top:8px;"><button class="btn outline st-weak-go" data-c="${escapeAttr(e.cat)}" style="padding:8px 12px;font-size:13px;">이 분야만 복습</button></div></div>`).join('')
-      : '<div class="st-note">아직 분석할 만큼 쌓인 기록이 없어요. 문제를 푸는 대로 약한 분야가 여기에 나와요.</div>'}</div>`;
+      : '<div class="st-note">아직 분석할 만큼 쌓인 기록이 없어요. 문제를 푸는 대로 약한 분야가 여기에 나와요.</div>'}</div>
+
+  <details class="st-card st-acc" id="acc-cat" ${statsAcc.cat?'open':''}><summary><span>🗂 카테고리별 진행상황</span><span class="sa-r">${data.questions.length?`${catN}개 분류 · 숙달 ${mastered} / ${data.questions.length}`:'항목 없음'}</span></summary><div id="cat-summary"></div></details>`;
+  [['acc-hist','hist',renderHistory],['acc-cat','cat',renderCatSummary]].forEach(([id,k,fn])=>{
+    const d = body.querySelector('#'+id);
+    d.addEventListener('toggle', ()=>{ statsAcc[k] = d.open; if(d.open) fn(); });
+    if(statsAcc[k]) fn();
+  });
   body.querySelector('#g-save').addEventListener('click', async ()=>{
     data.goal = { name:body.querySelector('#g-name').value.trim(), examDate:body.querySelector('#g-date').value||'', target:Math.max(0,+body.querySelector('#g-target').value||0)||'', auto:body.querySelector('#g-auto').checked };
     await saveData(); renderGoalChip(); renderStatsView(); showToast('목표를 저장했어요');
@@ -5720,6 +5723,7 @@ document.getElementById('notes-add-blank-btn').addEventListener('click', async (
 /* ---------- OVERVIEW ---------- */
 function renderCatSummary(){
   const summary = document.getElementById('cat-summary');
+  if(!summary || !statsViewOpen() || !statsAcc.cat) return;
   const quizItems = data.questions.slice();  // 문제 + 암기 모두 포함
   if(quizItems.length===0){
     summary.innerHTML = `<span style="color:var(--pencil);font-size:13px;">문제나 암기 항목을 추가하면 여기에 표시돼요.</span>`;
@@ -5740,7 +5744,7 @@ function renderCatSummary(){
     const inProg = items.filter(q=>!q.mastered && (q.correctCount||0)>0).length;
     const pctProg = total ? Math.round(inProg/total*100) : 0;
     const rows = items.slice().sort((a,b)=>a.question.localeCompare(b.question,'ko'));
-    return `<div class="cat-summary-row" data-cat="${escapeAttr(c)}">
+    return `<div class="cat-summary-row${catSumOpen.has(c)?' expanded':''}" data-cat="${escapeAttr(c)}">
       <div class="cat-summary-head">
         <span class="cat-summary-name"><span class="cat-summary-arrow">▸</span>${escapeHtml(c)}</span>
         <span class="cat-summary-count mono">${masteredCount} / ${total} 숙달 (${pct}%)</span>
@@ -5772,32 +5776,24 @@ function renderCatSummary(){
 
   summary.querySelectorAll('.cat-summary-head').forEach(head=>{
     head.addEventListener('click', ()=>{
-      head.closest('.cat-summary-row').classList.toggle('expanded');
+      const row = head.closest('.cat-summary-row'), c = row.dataset.cat;
+      row.classList.toggle('expanded');
+      if(row.classList.contains('expanded')) catSumOpen.add(c); else catSumOpen.delete(c);
     });
   });
   summary.querySelectorAll('.cat-edit-btn').forEach(b=>b.addEventListener('click', (e)=>{
     e.stopPropagation();
     const item = data.questions.find(x=>x.id===b.dataset.id);
+    closeStats();
     if(item && item.type==='memo') openMemoEdit(b.dataset.id); else editQuestion(b.dataset.id);
   }));
   summary.querySelectorAll('.cat-del-btn').forEach(b=>{
     b.addEventListener('click', (e)=>{
       e.stopPropagation();
-      confirmDelete(()=>deleteQuestion(b.dataset.id));
+      confirmDelete(async ()=>{ await deleteQuestion(b.dataset.id); if(statsViewOpen()) renderStatsView(); });
     });
   });
 }
-
-document.getElementById('cat-summary-toggle-btn').addEventListener('click', ()=>{
-  const area = document.getElementById('cat-summary-area');
-  const hidden = area.style.display === 'none' || area.style.display === '';
-  if(hidden){
-    renderCatSummary();
-    area.style.display = 'block';
-  } else {
-    area.style.display = 'none';
-  }
-});
 
 function renderSettingsPanel(){
   backupLastText();
