@@ -2169,6 +2169,7 @@ function mmLayout(ctx){
       const br = depth===0 ? i : branch;
       o.kids.push(measure(c, depth+1, br, c.c || (depth===0 ? MM_COLORS[i%MM_COLORS.length] : color)));
     });
+    o.kids.forEach(k=>{ k.par = o; });
     return o;
   }
   const roots = (MM.tree.hidden ? MM.tree.ch : [MM.tree]).map(r=>measure(r, 0, 0, '#16233F'));
@@ -2184,9 +2185,32 @@ function mmLayout(ctx){
   }
   let ty = 16;
   roots.forEach(r=>{ place(r, ty); ty += r.sh + 34; });
-  const W = x - GAPX + 16, H = ty - 34 + 16;
+  let H = ty - 34 + 16; const W = x - GAPX + 16;
   const byId = {}; nodes.forEach(o=>{ byId[o.n.id] = o; });
   const links = (MM.tree.links||[]).map(l=>({ f: byId[l.f], t: byId[l.t] })).filter(l=>l.f && l.t);
+  // 합쳐지는 칸은 합치는 부모들의 한가운데로 옮김 (아래 가지도 함께)
+  if(links.length){
+    const shiftSub = (o, d)=>{ o.y += d; o.kids.forEach(k=>shiftSub(k, d)); };
+    const targets = []; links.forEach(l=>{ if(!targets.includes(l.t)) targets.push(l.t); });
+    targets.sort((a,b)=>a.depth-b.depth).forEach(t=>{
+      const ps = links.filter(l=>l.t===t).map(l=>l.f); if(t.par) ps.push(t.par);
+      if(ps.length < 2) return;
+      const want = ps.reduce((s,q)=>s+q.y+q.h/2, 0)/ps.length;
+      shiftSub(t, want - (t.y + t.h/2));
+    });
+    // 겹치는 칸은 아래로 밀어냄
+    const maxD = Math.max(...nodes.map(o=>o.depth));
+    for(let d=0; d<=maxD; d++){
+      const col = nodes.filter(o=>o.depth===d).sort((a,b)=>a.y-b.y);
+      for(let i=1;i<col.length;i++){
+        const need = col[i-1].y + col[i-1].h + GAPY - col[i].y;
+        if(need > 0) shiftSub(col[i], need);
+      }
+    }
+    const minY = Math.min(...nodes.map(o=>o.y));
+    if(minY < 16){ nodes.forEach(o=>{ o.y += 16-minY; }); }
+    H = Math.max(H, Math.max(...nodes.map(o=>o.y+o.h)) + 16);
+  }
   return { root: roots[0], roots, nodes, links, W, H };
 }
 function mmRR(ctx, x, y, w, h, r){
