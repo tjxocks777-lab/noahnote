@@ -570,6 +570,9 @@
   #mm-editor{display:none;position:fixed;inset:0;z-index:170;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
   .mm-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;}
   #mm-canvas{display:block;touch-action:manipulation;}
+  #mm-study{display:none;position:fixed;inset:0;z-index:180;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
+  #ms2-canvas{display:block;touch-action:manipulation;}
+  .mm-info{font-size:12.5px;color:var(--ink-soft);margin:0 0 8px;line-height:1.5;}
   .mm-bar{background:var(--card);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));}
   .mm-bar{max-height:48vh;overflow-y:auto;}
   .mm-bar textarea{display:block;width:100%;box-sizing:border-box;font-size:16px;padding:9px 10px;border:1px solid var(--line);margin-bottom:8px;font-family:inherit;resize:none;line-height:1.4;max-height:110px;}
@@ -702,11 +705,12 @@
       <label class="file-label" for="scan-cam" style="margin-left:6px;">카메라로 찍기</label>
       <input type="file" id="scan-cam" accept="image/*" capture="environment" style="display:none;">
       <div class="hint" id="scan-hint-quiz" style="margin-top:10px;">문제집 한 페이지를 통째로 찍어도 돼요. 문제 텍스트와 보기(A~D)만 인식해요 — 정답·해설은 인식하지 않으니 아래 오답노트에서 직접 입력해주세요.</div>
-      <div class="hint" id="scan-hint-note" style="display:none;margin-top:10px;">정리된 필기나 설명 페이지를 찍으면 핵심 내용을 보기 좋게 정리해서 요점정리로 저장해드려요.</div>
+      <div class="hint" id="scan-hint-note" style="display:none;margin-top:10px;">정리된 필기나 설명 페이지를 찍으면 핵심 내용을 보기 좋게 정리해서 요점정리로 저장해드려요. 「🧠 마인드맵으로 만들기」를 누르면 글 대신 마인드맵으로 정리하고, 중요한 칸은 빈칸으로 미리 지정해 줘요.</div>
       <div class="hint" id="scan-hint-memo" style="display:none;margin-top:10px;">단어장·암기 정리 페이지를 찍으면 용어와 뜻을 뽑아서 암기 항목으로 추가할 수 있어요. 추가하기 전에 내용을 고칠 수 있어요.</div>
     </div>
     <div class="btn-row" style="margin-bottom:14px;">
       <button class="btn" id="scan-run-btn" disabled>인식하기</button>
+      <button class="btn outline" id="scan-mm-btn" style="display:none;" disabled>🧠 마인드맵으로 만들기</button>
     </div>
     <div class="scan-status" id="scan-status"></div>
     <div id="scan-results"></div>
@@ -940,6 +944,30 @@
       <span id="mm-tcolors" style="display:flex;gap:6px;align-items:center;"></span>
     </div>
     <div class="mm-row" id="mm-colors"></div>
+    <div class="mm-row">
+      <span class="ne-label">암기</span>
+      <button id="mm-blank" title="중요한 칸을 빈칸 학습에서 가려지게 지정">빈칸 지정</button>
+      <button id="mm-studyopen">📝 빈칸 학습</button>
+      <span id="mm-blank-count" style="font-size:12px;color:var(--ink-soft);"></span>
+    </div>
+  </div>
+</div>
+
+<!-- 마인드맵 빈칸 학습 -->
+<div id="mm-study">
+  <div class="ne-top">
+    <button class="ne-done" id="ms2-close">← 닫기</button>
+    <span class="ne-heading" id="ms2-title">빈칸 학습</span>
+    <button class="ne-small" id="ms2-next" style="display:none;">다음 ▸</button>
+  </div>
+  <div class="mm-scroll" id="ms2-scroll"><canvas id="ms2-canvas"></canvas></div>
+  <div class="mm-bar">
+    <p class="mm-info" id="ms2-info"></p>
+    <div class="mm-row">
+      <button id="ms2-hide">모두 가리기</button>
+      <button id="ms2-show">모두 보기</button>
+      <button id="ms2-memo">암기 항목으로 보내기</button>
+    </div>
   </div>
 </div>
 
@@ -1401,6 +1429,7 @@ function setInputType(type){
 
   document.getElementById('scan-hint-quiz').style.display = type==='quiz' ? 'block' : 'none';
   document.getElementById('scan-hint-note').style.display = type==='note' ? 'block' : 'none';
+  { const mb = document.getElementById('scan-mm-btn'); if(mb) mb.style.display = type==='note' ? '' : 'none'; }
   document.getElementById('scan-hint-memo').style.display = type==='memo' ? 'block' : 'none';
   const scanBtn = document.getElementById('scan-run-btn');
   scanBtn.disabled = !scanFiles.length;
@@ -1909,6 +1938,11 @@ function neBuildAtt(){
       const eb = document.createElement('button'); eb.className = 'ne-att-edit'; eb.textContent = '✎ 편집';
       eb.addEventListener('click', ()=>mmOpen(a.id));
       d.appendChild(eb);
+      if(mmHasBlank(a.mm)){
+        const sb = document.createElement('button'); sb.className = 'ne-att-edit'; sb.style.right = '88px'; sb.textContent = '📝 빈칸 학습';
+        sb.addEventListener('click', ()=>{ const r0 = (a.mm.hidden ? a.mm.ch[0] : a.mm); const t = (r0 && r0.t || '').trim() || '마인드맵'; mmStudyOpen([a.mm], t, '마인드맵 · '+t); });
+        d.appendChild(sb);
+      }
     }
     box.appendChild(d);
     attUrl(a).then(u=>{ if(u) img.src = u; });
@@ -2154,7 +2188,7 @@ function mmWrap(ctx, text, maxW){
   }
   return lines.length ? lines : [''];
 }
-function mmLayout(ctx){
+function mmLayoutH(ctx){
   ctx.font = MM_FONT;
   const GAPX = 44, GAPY = 12, PADX = 12, PADY = 8, LH = 20, MAXW = 150;
   const nodes = [];
@@ -2211,7 +2245,50 @@ function mmLayout(ctx){
     if(minY < 16){ nodes.forEach(o=>{ o.y += 16-minY; }); }
     H = Math.max(H, Math.max(...nodes.map(o=>o.y+o.h)) + 16);
   }
-  return { root: roots[0], roots, nodes, links, W, H };
+  return { mode:'h', root: roots[0], roots, nodes, links, W, H };
+}
+/* 가로가 넓어지면 가로 길이를 고정(약 380px)하고 세로로 늘려 쌓는 들여쓰기형 배치 → 노트에서 줄어들지 않고 크게 보임 */
+const MM_FIX_W = 380, MM_H_LIMIT = 420;
+function mmLayoutV(ctx){
+  const WV = MM_FIX_W, IND = 22, LEFT = 14, GUT = 22, GAPY = 8, PADX = 12, PADY = 8, LH = 20;
+  const nodes = [];
+  function measure(n, depth, color){
+    ctx.font = n.b ? MM_FONT_B : MM_FONT;
+    const avail = Math.max(110, WV - LEFT - GUT - depth*IND);
+    const cap = n.nw ? Math.min(n.nw, avail) : avail;
+    const lines = mmWrap(ctx, n.t || (depth===0 ? '주제' : ' '), Math.max(40, cap-PADX*2));
+    const tw = Math.max(...lines.map(l=>ctx.measureText(l).width), 24);
+    const w = n.nw ? cap : Math.min(avail, Math.max(90, Math.ceil(tw)+PADX*2));
+    const o = { n, depth, lines, w, h: Math.max(lines.length*LH+PADY*2, n.nh||0), color, kids:[] };
+    nodes.push(o);
+    if(!n.col) n.ch.forEach((c,i)=>{
+      o.kids.push(measure(c, depth+1, c.c || (depth===0 ? MM_COLORS[i%MM_COLORS.length] : color)));
+    });
+    o.kids.forEach(k=>{ k.par = o; });
+    return o;
+  }
+  const roots = (MM.tree.hidden ? MM.tree.ch : [MM.tree]).map(r=>measure(r, 0, '#16233F'));
+  let y = 16;
+  (function place(list){
+    list.forEach(o=>{
+      o.x = LEFT + o.depth*IND; o.y = y; y += o.h + GAPY;
+      place(o.kids);
+    });
+  })(roots.length ? roots : []);
+  // 루트(주제)끼리는 조금 더 띄움
+  let extra = 0;
+  roots.forEach((r,i)=>{
+    if(i>0){ extra += 14; }
+    const sh = (o)=>{ o.y += extra; o.kids.forEach(sh); }; sh(r);
+  });
+  const byId = {}; nodes.forEach(o=>{ byId[o.n.id] = o; });
+  const links = (MM.tree.links||[]).map(l=>({ f: byId[l.f], t: byId[l.t] })).filter(l=>l.f && l.t);
+  const H = Math.max(...nodes.map(o=>o.y+o.h)) + 16;
+  return { mode:'v', root: roots[0], roots, nodes, links, W: WV, H };
+}
+function mmLayout(ctx){
+  // 스캔으로 만든 마인드맵(lay:'v')만 세로 들여쓰기형 — 직접 만든 마인드맵은 기존 가로 배치 그대로
+  return MM.tree && MM.tree.lay==='v' ? mmLayoutV(ctx) : mmLayoutH(ctx);
 }
 function mmRR(ctx, x, y, w, h, r){
   ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
@@ -2220,19 +2297,32 @@ function mmTint(hex, a){
   const n = parseInt(hex.slice(1),16), r=n>>16, g=(n>>8)&255, b=n&255;
   return `rgba(${r},${g},${b},${a})`;
 }
-function mmDraw(ctx, L, selId){
+function mmDraw(ctx, L, selId, opts){
+  const hideSet = opts && opts.hide;
   ctx.save();
   ctx.textBaseline = 'middle'; ctx.font = MM_FONT;
   // 연결선
   L.nodes.forEach(o=>{
-    o.kids.forEach(k=>{
-      const x1 = o.x+o.w, y1 = o.y+o.h/2, x2 = k.x, y2 = k.y+k.h/2, mx = (x1+x2)/2;
+    (L.mode==='v' ? o.kids.slice().reverse() : o.kids).forEach(k=>{
       ctx.strokeStyle = k.color; ctx.lineWidth = 2.4; ctx.beginPath();
-      ctx.moveTo(x1,y1); ctx.bezierCurveTo(mx,y1,mx,y2,x2,y2); ctx.stroke();
+      if(L.mode==='v'){
+        const px = o.x+12, py = o.y+o.h, cy = k.y+k.h/2;
+        ctx.moveTo(px,py); ctx.lineTo(px,cy-9); ctx.quadraticCurveTo(px,cy,px+9,cy); ctx.lineTo(k.x,cy);
+      } else {
+        const x1 = o.x+o.w, y1 = o.y+o.h/2, x2 = k.x, y2 = k.y+k.h/2, mx = (x1+x2)/2;
+        ctx.moveTo(x1,y1); ctx.bezierCurveTo(mx,y1,mx,y2,x2,y2);
+      }
+      ctx.stroke();
     });
   });
   // 합치기 연결선: 보통 가지와 똑같은 굵기·곡선으로, 여러 선이 한 점으로 모였다가 한 칸으로 들어감 (갈라지는 가지의 거울상)
   (L.links||[]).forEach(l=>{
+    if(L.mode==='v'){
+      const xf = l.f.x+l.f.w, yf = l.f.y+l.f.h/2, xt = l.t.x+l.t.w, yt = l.t.y+l.t.h/2, bx = Math.max(xf, xt) + 14;
+      ctx.strokeStyle = l.f.color; ctx.lineWidth = 2.4; ctx.beginPath();
+      ctx.moveTo(xf,yf); ctx.bezierCurveTo(bx,yf,bx,yt,xt,yt); ctx.stroke();
+      return;
+    }
     const x1 = l.f.x+l.f.w, y1 = l.f.y+l.f.h/2, x2 = l.t.x, y2 = l.t.y+l.t.h/2;
     const mx = x2 - x1 >= 24 ? (x1+x2)/2 : null;
     ctx.strokeStyle = l.f.color; ctx.lineWidth = 2.4; ctx.beginPath();
@@ -2243,16 +2333,23 @@ function mmDraw(ctx, L, selId){
   });
   L.nodes.forEach(o=>{
     const isRoot = o.depth===0;
+    const hidden = !!(hideSet && o.n.bl && hideSet.has(o.n.id));
     mmRR(ctx, o.x, o.y, o.w, o.h, 10);
-    ctx.fillStyle = isRoot ? '#16233F' : mmTint(o.color, o.depth===1 ? 0.2 : 0.1);
+    ctx.fillStyle = hidden ? '#D5DBE6' : (o.n.bl ? '#FFF1A8' : (isRoot ? '#16233F' : mmTint(o.color, o.depth===1 ? 0.2 : 0.1)));
     ctx.fill();
-    ctx.lineWidth = o.n.id===selId ? 3.2 : 1.6;
-    ctx.strokeStyle = o.n.id===selId ? '#16233F' : (isRoot ? '#16233F' : o.color);
-    ctx.stroke();
+    ctx.lineWidth = o.n.id===selId ? 3.2 : (o.n.bl ? 2.2 : 1.6);
+    ctx.strokeStyle = o.n.id===selId ? '#16233F' : (hidden ? '#6B7789' : (o.n.bl ? '#D9A800' : (isRoot ? '#16233F' : o.color)));
+    if(hidden) ctx.setLineDash([6,4]);
+    ctx.stroke(); ctx.setLineDash([]);
     ctx.font = o.n.b ? MM_FONT_B : MM_FONT; ctx.textAlign = 'center';
-    ctx.fillStyle = o.n.tc || (isRoot ? '#fff' : '#16233F');
-    const y0 = o.y + (o.h - o.lines.length*20)/2 + 10;
-    o.lines.forEach((ln,i)=>ctx.fillText(ln, o.x+o.w/2, y0+i*20));
+    if(hidden){
+      ctx.font = '800 20px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#5B6678';
+      ctx.fillText('?', o.x+o.w/2, o.y+o.h/2);
+    } else {
+      ctx.fillStyle = o.n.tc || ((isRoot && !o.n.bl) ? '#fff' : '#16233F');
+      const y0 = o.y + (o.h - o.lines.length*20)/2 + 10;
+      o.lines.forEach((ln,i)=>ctx.fillText(ln, o.x+o.w/2, y0+i*20));
+    }
     ctx.textAlign = 'left';
     if(o.n.col && o.n.ch.length){
       ctx.fillStyle = o.color; ctx.font = '700 12px sans-serif';
@@ -2293,6 +2390,10 @@ function mmSyncBar(){
   neEl('mm-down').disabled = !(f && f.parent && idx<f.parent.ch.length-1);
   neEl('mm-parent').disabled = !node;
   neEl('mm-join').disabled = !node;
+  neEl('mm-blank').disabled = !node;
+  neEl('mm-blank').textContent = node && node.bl ? '빈칸 해제' : '빈칸 지정';
+  neEl('mm-blank').classList.toggle('on', !!(node && node.bl));
+  { const bn = mmBlankCount(MM.tree); neEl('mm-studyopen').disabled = !bn; neEl('mm-blank-count').textContent = bn ? `빈칸 ${bn}개` : ''; }
   neEl('mm-join').textContent = MM.joinTo ? '합치기 취소' : '🔗 합치기';
   neEl('mm-join').classList.toggle('on', !!MM.joinTo);
   ['mm-wdn','mm-wup','mm-hdn','mm-hup','mm-size0','mm-bold','mm-nl'].forEach(id=>{ neEl(id).disabled = !node; });
@@ -2325,6 +2426,72 @@ function mmAdd(asChild){
   else return;
   MM.sel = n.id; mmRender();
   const ti = neEl('mm-text'); ti.value = ''; ti.focus();
+}
+/* ----- 마인드맵 빈칸 학습: 빈칸(bl)으로 지정한 칸을 가리고, 눌러서 확인 / 암기 항목으로 보내기 ----- */
+function mmBlankCount(tree){ let n=0; (function w(x){ if(x.bl) n++; (x.ch||[]).forEach(w); })(tree); return n; }
+function mmHasBlank(tree){ return !!(tree && mmBlankCount(tree)); }
+function mmLayoutOf(tree){
+  const keep = MM.tree; MM.tree = tree;
+  try{ return mmLayout(document.createElement('canvas').getContext('2d')); } finally { MM.tree = keep; }
+}
+const MS = { list:[], idx:0, hide:new Set(), layout:null, tree:null, title:'', cat:'' };
+function mmWrapHidden(t){ return t.hidden ? t : { id:'sr0', t:'', hidden:true, ch:[t] }; }
+function mmStudyOpen(trees, title, cat){
+  const list = trees.map(t=>{ const c = mmClone(mmWrapHidden(t)); (function w(x){ delete x.col; (x.ch||[]).forEach(w); })(c); return c; }).filter(mmHasBlank);
+  if(!list.length){ showToast('먼저 가릴 칸을 "빈칸 지정"으로 정해주세요'); return; }
+  MS.list = list; MS.idx = 0; MS.title = title || '마인드맵'; MS.cat = cat || MS.title;
+  document.getElementById('mm-study').style.display = 'flex';
+  neEl('ms2-title').textContent = '빈칸 학습';
+  neEl('ms2-next').style.display = list.length>1 ? '' : 'none';
+  mmStudyLoad();
+}
+function mmStudyLoad(){
+  MS.tree = MS.list[MS.idx];
+  MS.hide = new Set(); (function w(x){ if(x.bl) MS.hide.add(x.id); (x.ch||[]).forEach(w); })(MS.tree);
+  neEl('ms2-scroll').scrollTop = 0; neEl('ms2-scroll').scrollLeft = 0;
+  if(MS.list.length>1) neEl('ms2-next').textContent = `다음 ▸ (${MS.idx+1}/${MS.list.length})`;
+  mmStudyRender();
+}
+function mmStudyRender(){
+  const cv = neEl('ms2-canvas'), ctx = cv.getContext('2d');
+  const L = mmLayoutOf(MS.tree); MS.layout = L;
+  const sc = neEl('ms2-scroll');
+  const vw = sc.clientWidth || 360, vh = sc.clientHeight || 400;
+  const W = Math.max(L.W, vw), H = Math.max(L.H, vh), dpr = Math.min(window.devicePixelRatio||1, 2);
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  mmDraw(ctx, L, null, { hide: MS.hide });
+  const total = mmBlankCount(MS.tree);
+  neEl('ms2-info').textContent = `가려진 칸 ${MS.hide.size} / 빈칸 ${total}개 — "?" 칸을 눌러서 답을 확인하세요. 다시 누르면 가려져요.`;
+}
+function mmStudySend(){
+  const out = [];
+  (function w(n, path){
+    (n.ch||[]).forEach(c=>{
+      const txt = String(c.t||'').replace(/\s*\n\s*/g,' ').trim();
+      if(c.bl && txt){
+        const q = (path.length ? path.join(' › ') : MS.title) + ' › ?';
+        const kids = (c.ch||[]).map(k=>String(k.t||'').replace(/\s*\n\s*/g,' ').trim()).filter(Boolean);
+        out.push({ q, a: txt, ex: `마인드맵 '${MS.title}'` + (kids.length ? ' · 하위: '+kids.join(', ') : '') });
+      }
+      w(c, c.hidden ? path : path.concat(String(c.t||'').replace(/\s*\n\s*/g,' ').trim()));
+    });
+  })(MS.tree, []);
+  if(!out.length){ showToast('보낼 빈칸이 없어요'); return; }
+  const cat = MS.cat;
+  showConfirmModal(`빈칸 ${out.length}개를 '${cat}' 분류의 암기 항목으로 보낼까요? 오늘의 복습에 나오고, 이미 있는 항목은 건너뛰어요.`, async ()=>{
+    const have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
+    let add = 0;
+    out.forEach((o,i)=>{
+      if(have.has(cat+'||'+o.q)) return;
+      data.questions.push({ id:'m_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*10000), type:'memo', part:cat, question:o.q, choices:null, answer:o.a, explanation:o.ex,
+        box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr() });
+      add++;
+    });
+    await saveData(); try{ renderStatStrip(); }catch(_){}
+    showToast(add ? `암기 항목 ${add}개를 추가했어요` : '이미 모두 추가돼 있어요');
+  }, null, '보내기', '취소');
 }
 /* 첨부 그림 주소: 저장된 사진이 없고 마인드맵 데이터가 있으면 마인드맵을 다시 그려서 채워 넣음 */
 const attRegen = new Map();
@@ -2505,6 +2672,26 @@ async function mmFinish(){
     MM.joinTo = MM.sel; mmRender();
     try{ neEl('mm-text').blur(); }catch(_){}
     showToast('이 칸으로 합칠 칸(선이 나올 칸)을 터치하세요. 이미 합친 칸을 누르면 해제돼요');
+  });
+  neEl('mm-blank').addEventListener('click', ()=>{
+    const f = MM.sel && mmFind(MM.tree, MM.sel); if(!f) return;
+    mmPush(); if(f.node.bl) delete f.node.bl; else f.node.bl = true; mmRender();
+  });
+  neEl('mm-studyopen').addEventListener('click', ()=>{
+    const r0 = MM.tree.ch[0]; const t = (r0 && r0.t && r0.t.trim()) || '마인드맵';
+    mmStudyOpen([MM.tree], t, '마인드맵 · '+t);
+  });
+  neEl('ms2-close').addEventListener('click', ()=>{ neEl('mm-study').style.display = 'none'; });
+  neEl('ms2-next').addEventListener('click', ()=>{ MS.idx = (MS.idx+1) % MS.list.length; mmStudyLoad(); });
+  neEl('ms2-hide').addEventListener('click', ()=>{ MS.hide = new Set(); (function w(x){ if(x.bl) MS.hide.add(x.id); (x.ch||[]).forEach(w); })(MS.tree); mmStudyRender(); });
+  neEl('ms2-show').addEventListener('click', ()=>{ MS.hide = new Set(); mmStudyRender(); });
+  neEl('ms2-memo').addEventListener('click', mmStudySend);
+  neEl('ms2-canvas').addEventListener('click', e=>{
+    const r = neEl('ms2-canvas').getBoundingClientRect(), x = e.clientX-r.left, y = e.clientY-r.top;
+    const hit = MS.layout && MS.layout.nodes.slice().reverse().find(o=>o.n.bl && x>=o.x-4 && x<=o.x+o.w+4 && y>=o.y-4 && y<=o.y+o.h+4);
+    if(!hit) return;
+    if(MS.hide.has(hit.n.id)) MS.hide.delete(hit.n.id); else MS.hide.add(hit.n.id);
+    mmStudyRender();
   });
   neEl('mm-done').addEventListener('click', mmFinish);
   neEl('ne-mm-btn').addEventListener('click', ()=>mmOpen(null));
@@ -2732,6 +2919,7 @@ function renderNotesListView(){
         <div class="note-item-head">
           <span class="note-item-title">${escapeHtml(n.title)}</span>
           <div class="row-actions">
+            ${(n.att||[]).some(a=>a.mm && mmHasBlank(a.mm)) ? `<button class="note-study-btn" data-id="${n.id}">빈칸 학습</button>` : ''}
             <button class="note-edit-btn" data-id="${n.id}">수정</button>
             <button class="note-del-btn" data-id="${n.id}">삭제</button>
           </div>
@@ -2755,6 +2943,13 @@ function renderNotesListView(){
   });
   container.querySelectorAll('.note-edit-btn').forEach(b=>{
     b.addEventListener('click', (e)=>{ e.stopPropagation(); openNoteEdit(b.dataset.id); });
+  });
+  container.querySelectorAll('.note-study-btn').forEach(b=>{
+    b.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const n = data.notes.find(x=>x.id===b.dataset.id); if(!n) return;
+      mmStudyOpen((n.att||[]).filter(a=>a.mm).map(a=>a.mm), n.title, n.title);
+    });
   });
   container.querySelectorAll('.note-del-btn').forEach(b=>{
     b.addEventListener('click', (e)=>{ e.stopPropagation(); confirmDelete(()=>deleteNote(b.dataset.id)); });
@@ -3566,6 +3761,7 @@ async function scanAll(prompt, maxTokens, kind){
   }
   if(!results.length) throw (lastErr || new Error('scan'));
   if(fail) showToast(`${fail}장은 인식에 실패해서 제외했어요`);
+  if(kind==='raw') return results;
   if(kind==='array') return results.reduce((a,r)=>a.concat(Array.isArray(r)?r:[]), []);
   const objs = results.filter(r=>r && r.content);
   if(!objs.length) return null;
@@ -3648,10 +3844,131 @@ async function runNoteScan(){
       renderNotePreview(parsed.title || '', parsed.content || '', qs);
     }
   } catch(e){
-    document.getElementById('scan-status').textContent = '정리에 실패했어요. 사진을 다시 찍거나 다시 시도해주세요.';
+    document.getElementById('scan-status').textContent = '정리에 실패했어요. 원인: '+scanErrText(e);
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ---------- 마인드맵 스캔: 사진 → 마인드맵(중요 칸은 빈칸으로 미리 지정) ---------- */
+document.getElementById('scan-run-btn').addEventListener('click', ()=>{}, false);
+(function(){
+  const run = document.getElementById('scan-run-btn'), mm = document.getElementById('scan-mm-btn');
+  const sync = ()=>{ mm.disabled = run.disabled; };
+  new MutationObserver(sync).observe(run, { attributes:true, attributeFilter:['disabled'] }); sync();
+  mm.addEventListener('click', ()=>{ if(scanFiles.length) runMindmapScan(); });
+})();
+function mmFromAi(n, depth){
+  const t = String((n && n.t) || '').replace(/\s+/g,' ').trim().slice(0,60);
+  const o = mmNew(t);
+  if(depth>0 && n && n.key===true) o.bl = true;
+  if(depth<4 && n && Array.isArray(n.ch)) n.ch.slice(0,10).forEach(c=>{ if(c && c.t) o.ch.push(mmFromAi(c, depth+1)); });
+  return o;
+}
+async function runMindmapScan(){
+  const btn = document.getElementById('scan-run-btn');
+  btn.disabled = true;
+  document.getElementById('scan-status').textContent = '마인드맵으로 정리하고 있어요...';
+  document.getElementById('note-preview-area').innerHTML = '';
+  try{
+    const prompt = `이 이미지는 학습 자료(필기, 교재 페이지, 정리 노트)입니다. 내용을 마인드맵 구조로 정리해주세요. 아래 JSON 형식으로만 답하세요. 코드블록이나 다른 설명 없이 순수 JSON만 출력하세요.
+
+{"title":"이 내용을 한 줄로 요약한 제목","tree":{"t":"중심 주제","ch":[{"t":"가지 제목","ch":[{"t":"세부 내용","key":true,"ch":[]}]}]}}
+
+- 중심 주제는 1개, 깊이는 최대 3단계(중심 주제 → 가지 → 세부 내용)로 하세요. 꼭 필요할 때만 한 단계 더 쓰세요.
+- 가지는 3~7개, 각 가지의 세부 항목은 2~6개가 좋아요.
+- 각 칸의 글은 짧은 키워드나 구로 쓰세요(가능하면 20자 이내). 문장 전체를 넣지 마세요. 영어 원문은 그대로 두세요.
+- 암기해야 할 핵심 용어·정의·숫자·공식에 해당하는 칸에는 "key": true를 붙이세요(전체 칸의 약 20~30%). 중심 주제와 가지 제목에는 붙이지 마세요.
+- 손글씨 낙서나 관련 없는 여백은 무시하세요.`;
+    const results = await scanAll(prompt, 3000, 'raw');
+    const trees = results.filter(r=>r && r.tree && r.tree.t).map(r=>({ title: r.title||'', tree: mmFromAi(r.tree, 0) }));
+    if(!trees.length){
+      document.getElementById('scan-status').textContent = '마인드맵으로 정리하지 못했어요. 더 선명한 사진으로 다시 시도해주세요.';
+      return;
+    }
+    const title = (trees[0].title || trees[0].tree.t || '마인드맵').trim();
+    let root;
+    if(trees.length===1) root = trees[0].tree;
+    else { root = mmNew(title); root.ch = trees.map(x=>x.tree); }
+    const hidden = { id:'sr'+Date.now().toString(36), t:'', hidden:true, lay:'v', ch:[root] };
+    const cnt = (function c(n){ return 1 + (n.ch||[]).reduce((s,k)=>s+c(k),0); })(root);
+    const bl = mmBlankCount(hidden);
+    document.getElementById('scan-status').textContent = `마인드맵으로 정리했어요 (칸 ${cnt}개, 빈칸 ${bl}개). 확인하고 저장해주세요.`;
+    await renderMindmapPreview(title, hidden);
+  }catch(e){
+    document.getElementById('scan-status').textContent = '정리에 실패했어요. 원인: '+scanErrText(e);
+  }finally{
+    btn.disabled = false;
+  }
+}
+async function renderMindmapPreview(title, tree){
+  const area = document.getElementById('note-preview-area');
+  const out = await mmRenderPng(tree);
+  const url = await b64FromBlob(out.blob);
+  area.innerHTML = `<div class="form-block" style="margin-top:14px;">
+    <div class="field">
+      <label>분류</label>
+      <select id="mp-category-select"></select>
+      <input type="text" id="mp-category-new" placeholder="새 분류 이름" style="display:none;margin-top:8px;">
+    </div>
+    <div class="field">
+      <label>제목</label>
+      <input type="text" id="mp-title" value="${escapeAttr(title)}">
+    </div>
+    <div class="field">
+      <label>미리보기 (노란 칸 = 빈칸 학습에서 가려지는 칸)</label>
+      <div style="border:1px solid var(--line);background:#fff;overflow:auto;max-height:60vh;"><img src="${url}" alt="마인드맵 미리보기" style="display:block;width:100%;"></div>
+      <div class="hint">저장한 뒤 노트에서 ✎ 편집으로 칸을 고치거나 빈칸을 바꿀 수 있어요.</div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0;"><input type="checkbox" id="mp-tomemo"> 빈칸을 암기 항목으로도 추가 (오늘의 복습에 나와요)</label>
+    <div class="btn-row"><button class="btn" id="mp-save-btn">요점정리로 저장</button></div>
+  </div>`;
+  const cats = getNoteCategories();
+  const sel = document.getElementById('mp-category-select');
+  sel.innerHTML = cats.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('') + `<option value="__new__">+ 새 분류 추가</option>`;
+  sel.value = cats.length ? cats[0] : '__new__';
+  document.getElementById('mp-category-new').style.display = cats.length ? 'none' : 'block';
+  sel.addEventListener('change', ()=>{ document.getElementById('mp-category-new').style.display = sel.value==='__new__' ? 'block' : 'none'; });
+  document.getElementById('mp-save-btn').addEventListener('click', async ()=>{
+    const selVal = sel.value;
+    const category = selVal==='__new__' ? (document.getElementById('mp-category-new').value.trim() || '기타') : selVal;
+    const t = document.getElementById('mp-title').value.trim();
+    if(!t){ showToast('제목을 입력해주세요'); return; }
+    const id = 'a_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
+    await AttDB.put(id, out.blob);
+    data.notes.push({
+      id: 'n_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+      part: category, title: t, content: '', createdAt: todayStr(),
+      strokes: [], att: [{ id, ar: out.ar, mm: mmClone(tree) }], freeH: 0.3, drawing: '', drawingW: 0, drawingH: 0
+    });
+    let added = 0;
+    if(document.getElementById('mp-tomemo').checked){
+      MS.tree = tree; MS.title = t;
+      const have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
+      (function w(n, path){
+        (n.ch||[]).forEach(c=>{
+          const txt = String(c.t||'').replace(/\s*\n\s*/g,' ').trim();
+          if(c.bl && txt){
+            const q = (path.length ? path.join(' › ') : t) + ' › ?';
+            if(!have.has(t+'||'+q)){
+              const kids = (c.ch||[]).map(k=>String(k.t||'').trim()).filter(Boolean);
+              data.questions.push({ id:'m_'+Date.now()+'_'+added+'_'+Math.floor(Math.random()*10000), type:'memo', part:t, question:q, choices:null, answer:txt,
+                explanation:`마인드맵 '${t}'`+(kids.length?' · 하위: '+kids.join(', '):''), box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr() });
+              added++;
+            }
+          }
+          w(c, path.concat(txt));
+        });
+      })(tree, []);
+    }
+    await saveData();
+    showToast(added ? `마인드맵 노트와 암기 항목 ${added}개를 저장했어요` : '마인드맵 노트로 저장했어요');
+    area.innerHTML = '';
+    document.getElementById('scan-status').textContent = '';
+    resetScan();
+    document.getElementById('scan-run-btn').disabled = true;
+    renderStatStrip();
+  });
 }
 
 /* ---------- 암기 스캔: 사진에서 용어/뜻 뽑기 ---------- */
