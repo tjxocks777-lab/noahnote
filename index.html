@@ -255,6 +255,39 @@
   .btn:hover{opacity:0.88;}
   .btn.outline{background:transparent;color:var(--ink);}
   .btn.red{background:var(--red);border-color:var(--red);}
+  .btn.amber{background:#C98A1B;border-color:#C98A1B;}
+  .grade-row{gap:8px;}
+  .grade-row .btn{font-size:14px;padding:16px 6px;}
+  #goal-chip{display:none;margin-bottom:16px;}
+  #goal-chip .gc{background:var(--ink);color:#fff;padding:12px 14px;cursor:pointer;}
+  #goal-chip .gc-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  #goal-chip .gc-d{font-family:'Black Han Sans',sans-serif;font-size:20px;}
+  #goal-chip .gc-n{font-size:13px;opacity:.9;text-align:right;}
+  #goal-chip .gc-bar{height:6px;background:rgba(255,255,255,.25);margin-top:8px;}
+  #goal-chip .gc-bar i{display:block;height:100%;background:#fff;}
+  #goal-chip .gc-sub{font-size:11.5px;opacity:.8;margin-top:6px;}
+  #stats-view{display:none;position:fixed;inset:0;z-index:190;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
+  #st-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 40px;}
+  .st-card{background:var(--card);border:1px solid var(--line);padding:14px;margin-bottom:12px;}
+  .st-h{font-size:12px;font-weight:700;color:var(--ink-soft);margin:0 0 10px;}
+  .st-big{display:flex;gap:8px;}
+  .st-big div{flex:1;text-align:center;font-size:11.5px;color:var(--ink-soft);}
+  .st-big b{display:block;font-size:22px;color:var(--ink);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;}
+  .st-bars{display:flex;align-items:flex-end;gap:6px;height:90px;margin:4px 0 6px;}
+  .st-bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:10px;color:var(--ink-soft);}
+  .st-bars i{display:block;width:100%;background:var(--ink);min-height:2px;}
+  .st-bars span{margin-top:3px;}
+  .st-line{font-size:13px;line-height:1.7;color:var(--ink);}
+  .st-note{font-size:12px;color:var(--ink-soft);line-height:1.6;margin-top:6px;}
+  .st-weak{padding:10px 0;border-top:1px solid var(--line);}
+  .st-weak:first-of-type{border-top:none;}
+  .st-weak .nm{font-weight:700;font-size:14px;}
+  .st-weak .sb{font-size:12px;color:var(--ink-soft);margin:2px 0 6px;}
+  .st-pbar{height:6px;background:var(--line);}
+  .st-pbar i{display:block;height:100%;background:var(--red);}
+  .st-form input[type=text],.st-form input[type=number],.st-form input[type=date]{width:100%;padding:10px 12px;border:1px solid var(--line);font:inherit;font-size:14px;margin-bottom:8px;background:#fff;color:var(--ink);}
+  .st-form label.ck{display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0 10px;}
+
   .btn.green{background:var(--green);border-color:var(--green);}
   .btn:disabled{opacity:0.4;cursor:not-allowed;}
   .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
@@ -650,6 +683,7 @@
 
   <!-- REVIEW PANEL -->
   <section class="panel active" id="panel-review">
+    <div id="goal-chip"></div>
     <div class="field" style="margin-bottom:18px;">
       <label>카테고리별로 풀기</label>
       <button class="cat-pick-btn" id="cat-pick-btn" type="button"></button>
@@ -674,6 +708,7 @@
     <div id="review-area"></div>
 
     <div class="btn-row" style="margin-top:28px;">
+      <button class="btn" id="stats-open-btn">📊 학습 통계 · 목표</button>
       <button class="btn outline" id="cat-summary-toggle-btn">카테고리별 진행상황 보기</button>
       <button class="btn outline" id="history-toggle-btn">날짜별 복습 기록 보기</button>
     </div>
@@ -971,6 +1006,16 @@
       <span id="mm-blank-count" style="font-size:12px;color:var(--ink-soft);"></span>
     </div>
   </div>
+</div>
+
+<!-- 학습 통계 -->
+<div id="stats-view">
+  <div class="ne-top">
+    <button class="ne-done" id="st-close">← 닫기</button>
+    <span class="ne-heading">학습 통계 · 목표</span>
+    <span style="width:64px;"></span>
+  </div>
+  <div id="st-body"></div>
 </div>
 
 <!-- 마인드맵 빈칸 학습 -->
@@ -3307,7 +3352,7 @@ function reorderAvoidingRepeatAnswers(arr){
 
 function computeDue(){
   const t = todayStr();
-  const limit = data.settings.dailyLimit;
+  const limit = effDailyLimit();
   const dueAll = data.questions
     .filter(q=>q.nextReviewDate <= t && (reviewCats.size===0 || reviewCats.has(q.part||'기타')))
     .sort((x,y)=> x.nextReviewDate < y.nextReviewDate ? -1 : 1);
@@ -3416,6 +3461,7 @@ function renderStatStrip(){
   `;
   document.getElementById('stat-wrong-cell').addEventListener('click', toggleWrongQuestions);
   try{ renderBlankStudy(); }catch(e){ console.error(e); }
+  try{ renderGoalChip(); }catch(e){ console.error(e); }
 }
 
 function renderWrongQuestions(){
@@ -3457,12 +3503,13 @@ function getTodayProgress(){
 }
 
 /* 날짜별 복습 기록: data.history[날짜][카테고리] = {done, correct} */
-function logHistory(q, isCorrect){
+function logHistory(q, isCorrect, grade){
   data.history = data.history || {};
   const day = todayStr(), cat = q.part || '기타';
   const d = data.history[day] = data.history[day] || {};
   const e = d[cat] = d[cat] || { done:0, correct:0 };
   e.done++; if(isCorrect) e.correct++;
+  if(grade==='hard') e.hard = (e.hard||0) + 1;
 }
 function renderHistory(){
   const el = document.getElementById('history-area');
@@ -3642,34 +3689,34 @@ function renderReview(){
             ${q.explanation ? `<div class="expl-label">해설</div><div class="expl">${escapeHtml(q.explanation)}</div>` : ''}
           </div>
           <div class="btn-row grade-row">
-            <button class="btn green" id="self-correct">← 맞았어요</button>
-            <button class="btn red" id="self-wrong">틀렸어요 →</button>
+            <button class="btn green" id="self-correct">쉬웠어요</button>
+            <button class="btn amber" id="self-hard">헷갈렸어요</button>
+            <button class="btn red" id="self-wrong">몰랐어요</button>
           </div>
+          <div class="st-note" style="text-align:center;">쉬웠어요: 간격 늘림 · 헷갈렸어요: 내일 다시 · 몰랐어요: 처음부터</div>
         </div>`;
 
-      document.getElementById('self-correct').addEventListener('click', ()=>{
-        document.getElementById('self-correct').disabled = true;
-        document.getElementById('self-wrong').disabled = true;
-        finishGrading(q, true);
-      });
-      document.getElementById('self-wrong').addEventListener('click', ()=>{
-        document.getElementById('self-correct').disabled = true;
-        document.getElementById('self-wrong').disabled = true;
-        finishGrading(q, false);
-      });
+      const lockGrade = ()=>['self-correct','self-hard','self-wrong'].forEach(i=>{ const b=document.getElementById(i); if(b) b.disabled = true; });
+      document.getElementById('self-correct').addEventListener('click', ()=>{ lockGrade(); finishGrading(q, true); });
+      document.getElementById('self-hard').addEventListener('click', ()=>{ lockGrade(); finishGrading(q, false, 'hard'); });
+      document.getElementById('self-wrong').addEventListener('click', ()=>{ lockGrade(); finishGrading(q, false); });
     };
     document.getElementById('reveal-btn').addEventListener('click', revealAnswer);
   }
 }
 
 let autoNextTimer = null;
-async function finishGrading(q, isCorrect){
+async function finishGrading(q, isCorrect, grade){
   const progress = getTodayProgress();
   progress.done++;
   if(isCorrect) progress.correct++;
-  logHistory(q, isCorrect);
+  logHistory(q, isCorrect, grade);
 
-  if(isCorrect){
+  if(grade==='hard'){
+    // 헷갈렸어요: 연속 정답은 그대로 두고 내일 다시 확인
+    q.hardCount = (q.hardCount||0) + 1;
+    q.nextReviewDate = addDays(todayStr(), 1);
+  } else if(isCorrect){
     session.correctCount++;
     q.correctCount = (q.correctCount||0) + 1;
     q.box = q.correctCount>=MASTER_AT ? 2 : 1;
@@ -4097,6 +4144,117 @@ async function czImportPdf(file){
     }});
   });
 })();
+
+/* ---------- 학습 통계 · 목표 · D-day · 약점 분석 ---------- */
+function histDay(d){ const h=(data.history||{})[d]; if(!h) return {done:0,correct:0,hard:0}; return Object.values(h).reduce((a,e)=>({done:a.done+e.done,correct:a.correct+e.correct,hard:a.hard+(e.hard||0)}),{done:0,correct:0,hard:0}); }
+function histRange(fromOff, toOff){   // 오늘 기준 -fromOff ~ -toOff일 (포함)
+  const o={done:0,correct:0,hard:0,days:0};
+  for(let i=fromOff;i>=toOff;i--){ const x=histDay(addDays(todayStr(),-i)); o.done+=x.done; o.correct+=x.correct; o.hard+=x.hard; if(x.done) o.days++; }
+  return o;
+}
+function calcStreak(){
+  const h = data.history||{}; let n=0, cur=todayStr();
+  if(!h[cur]) cur = addDays(cur,-1);
+  while(h[cur]){ n++; cur = addDays(cur,-1); }
+  return n;
+}
+function daysToExam(){
+  const g = data.goal; if(!g || !g.examDate) return null;
+  return Math.round((new Date(g.examDate+'T00:00:00') - new Date(todayStr()+'T00:00:00'))/86400000);
+}
+function effDailyLimit(){
+  const base = data.settings.dailyLimit;
+  const g = data.goal, dl = daysToExam();
+  if(!g || !g.auto || dl===null || dl<0) return base;
+  const need = data.questions.filter(q=>!q.mastered).reduce((a,q)=>a+Math.max(1, MASTER_AT-(q.correctCount||0)),0);
+  const per = Math.ceil(need / Math.max(1, dl) * 1.3);   // 틀릴 경우를 대비해 30% 여유
+  return Math.max(5, Math.min(300, per));
+}
+function goalTarget(){ const g=data.goal||{}; return Math.max(1, +g.target || data.questions.length || 1); }
+function renderGoalChip(){
+  const el = document.getElementById('goal-chip'); if(!el) return;
+  const g = data.goal;
+  if(!g || (!g.name && !g.examDate && !g.target)){ el.style.display='none'; el.innerHTML=''; return; }
+  const dl = daysToExam(), mastered = data.questions.filter(q=>q.mastered).length, tg = goalTarget();
+  const pct = Math.min(100, Math.round(mastered/tg*100));
+  const dtxt = dl===null ? '' : (dl>0 ? 'D-'+dl : (dl===0 ? 'D-DAY' : 'D+'+(-dl)));
+  el.style.display = 'block';
+  el.innerHTML = `<div class="gc" id="gc-open"><div class="gc-top"><span class="gc-d">${dtxt || '목표'}</span><span class="gc-n">${escapeHtml(g.name||'목표')}<br>숙달 ${mastered} / ${tg} (${pct}%)</span></div>
+    <div class="gc-bar"><i style="width:${pct}%"></i></div>
+    ${g.auto && dl!==null && dl>=0 ? `<div class="gc-sub">시험일에 맞춰 오늘 복습량을 ${effDailyLimit()}문제로 자동 조절 중</div>` : ''}</div>`;
+  document.getElementById('gc-open').addEventListener('click', openStats);
+}
+function weakList(){
+  const cats = {};
+  data.questions.forEach(q=>{ const c=q.part||'기타'; const e=cats[c]=cats[c]||{n:0,m:0,wrong:0,done:0,correct:0}; e.n++; if(q.mastered) e.m++; if(!q.mastered && (q.wrongCount||0)>0) e.wrong++; });
+  const from = addDays(todayStr(), -13);
+  Object.keys(data.history||{}).forEach(d=>{ if(d<from) return; Object.keys(data.history[d]).forEach(c=>{ const e=cats[c]; if(!e) return; e.done+=data.history[d][c].done; e.correct+=data.history[d][c].correct; }); });
+  return Object.keys(cats).map(c=>{
+    const e=cats[c], acc = e.done>=5 ? e.correct/e.done : null;
+    const score = (acc===null ? 0 : (1-acc)*0.7) + (e.wrong/e.n)*0.3 + (acc===null ? (e.wrong/e.n)*0.3 : 0);
+    return Object.assign({cat:c, acc, score}, e);
+  }).filter(e=>e.n>=3 && (e.wrong>0 || (e.acc!==null && e.acc<0.9))).sort((a,b)=>b.score-a.score).slice(0,5);
+}
+function renderStatsView(){
+  const body = document.getElementById('st-body'); if(!body) return;
+  const tdy = histDay(todayStr()), w1 = histRange(6,0), w0 = histRange(13,7);
+  const streak = calcStreak();
+  const acc = o=>o.done ? Math.round(o.correct/o.done*100) : null;
+  const diff = (a,b)=> (a===null||b===null) ? '' : (a-b>0?` (+${a-b})`:(a-b<0?` (${a-b})`:' (변화 없음)'));
+  const wd = ['일','월','화','수','목','금','토'];
+  let bars = '', mx = 1; const vals=[];
+  for(let i=6;i>=0;i--){ const d=addDays(todayStr(),-i); const v=histDay(d).done; vals.push([d,v]); mx=Math.max(mx,v); }
+  bars = vals.map(([d,v])=>`<div><span>${v||''}</span><i style="height:${Math.round(v/mx*70)}px;${v?'':'opacity:.15'}"></i><span>${wd[new Date(d+'T00:00:00').getDay()]}</span></div>`).join('');
+  const a1=acc(w1), a0=acc(w0);
+  const msg = !w1.done ? '이번 주에는 아직 푼 문제가 없어요. 오늘 하나만 풀어도 연속 학습이 시작돼요.' :
+    (w1.done>=w0.done ? `지난 주보다 ${w1.done-w0.done}문제 더 풀었어요. ` : `지난 주보다 ${w0.done-w1.done}문제 적게 풀었어요. `) + (a1!==null&&a0!==null&&a1>=a0 ? '정답률도 유지되고 있어요.' : '헷갈리는 부분을 아래 약점 분석에서 확인해보세요.');
+  const mastered = data.questions.filter(q=>q.mastered).length, tg = goalTarget(), g = data.goal||{}, dl = daysToExam();
+  const pace = (dl!==null && dl>0 && tg>mastered) ? `목표까지 하루 약 ${Math.ceil((tg-mastered)/dl)}개 숙달이 필요해요` : '';
+  const weak = weakList();
+  body.innerHTML = `
+  <div class="st-card"><div class="st-big">
+    <div><b>${streak}일</b>연속 학습</div><div><b>${tdy.done}</b>오늘 푼 문제</div><div><b>${w1.done}</b>최근 7일</div><div><b>${mastered}</b>숙달</div></div></div>
+
+  <div class="st-card"><p class="st-h">🎯 목표 · D-day</p><div class="st-form">
+    <input type="text" id="g-name" placeholder="목표 이름 (예: 토익 850점)" value="${escapeAttr(g.name||'')}">
+    <input type="date" id="g-date" value="${escapeAttr(g.examDate||'')}">
+    <input type="number" id="g-target" min="1" placeholder="숙달 목표 개수 (비우면 전체 ${data.questions.length}개)" value="${g.target||''}">
+    <label class="ck"><input type="checkbox" id="g-auto" ${g.auto?'checked':''}> 시험일에 맞춰 하루 복습량 자동 조절</label>
+    <div class="btn-row"><button class="btn" id="g-save">저장</button><button class="btn outline" id="g-clear">목표 지우기</button></div></div>
+    <div class="st-note">${dl!==null ? (dl>=0 ? `시험까지 ${dl}일 남았어요. ` : '시험일이 지났어요. ') : ''}숙달 ${mastered} / ${tg} (${Math.min(100,Math.round(mastered/tg*100))}%)${pace?'<br>'+pace:''}${g.auto&&dl!==null&&dl>=0?`<br>오늘 복습량(자동): ${effDailyLimit()}문제`:''}</div></div>
+
+  <div class="st-card"><p class="st-h">📅 주간 리포트 (최근 7일)</p>
+    <div class="st-bars">${bars}</div>
+    <div class="st-line">푼 문제 <b>${w1.done}</b>${diff(w1.done,w0.done)} · 학습한 날 <b>${w1.days}</b>일<br>
+      쉬웠어요 <b>${w1.correct}</b> · 헷갈렸어요 <b>${w1.hard}</b> · 몰랐어요 <b>${w1.done-w1.correct-w1.hard}</b><br>
+      정답률 <b>${a1===null?'-':a1+'%'}</b>${a1!==null&&a0!==null?diff(a1,a0).replace(')','%p)'):''}</div>
+    <div class="st-note">${msg}</div>
+    <div class="btn-row" style="margin-top:10px;"><button class="btn outline" id="st-copy">요약 복사 (카톡 공유용)</button></div></div>
+
+  <div class="st-card"><p class="st-h">🔍 약점 분석 (최근 14일 + 틀린 문제 기준)</p>
+    ${weak.length ? weak.map((e,i)=>`<div class="st-weak"><div class="nm">${i+1}. ${escapeHtml(e.cat)}</div>
+      <div class="sb">${e.acc!==null?`정답률 ${Math.round(e.acc*100)}% (${e.done}문제) · `:''}틀린 문제 ${e.wrong}개 / 전체 ${e.n}개 · 숙달 ${e.m}개</div>
+      <div class="st-pbar"><i style="width:${Math.round(Math.min(1,e.score)*100)}%"></i></div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn outline st-weak-go" data-c="${escapeAttr(e.cat)}" style="padding:8px 12px;font-size:13px;">이 분야만 복습</button></div></div>`).join('')
+      : '<div class="st-note">아직 분석할 만큼 쌓인 기록이 없어요. 문제를 푸는 대로 약한 분야가 여기에 나와요.</div>'}</div>`;
+  body.querySelector('#g-save').addEventListener('click', async ()=>{
+    data.goal = { name:body.querySelector('#g-name').value.trim(), examDate:body.querySelector('#g-date').value||'', target:Math.max(0,+body.querySelector('#g-target').value||0)||'', auto:body.querySelector('#g-auto').checked };
+    await saveData(); renderGoalChip(); renderStatsView(); showToast('목표를 저장했어요');
+  });
+  body.querySelector('#g-clear').addEventListener('click', ()=>confirmDelete(async ()=>{ data.goal = null; await saveData(); renderGoalChip(); renderStatsView(); }, '목표를 지울까요?'));
+  body.querySelector('#st-copy').addEventListener('click', async ()=>{
+    const t = `[NOAH NOTE 주간 리포트]\n최근 7일 ${w1.done}문제 · ${w1.days}일 학습 · 정답률 ${a1===null?'-':a1+'%'}\n연속 학습 ${streak}일 · 숙달 ${mastered}개`+(g.name?`\n목표: ${g.name}${dl!==null&&dl>=0?' (D-'+dl+')':''}`:'');
+    try{ await navigator.clipboard.writeText(t); showToast('복사했어요'); }catch(_){ showToast('복사하지 못했어요'); }
+  });
+  body.querySelectorAll('.st-weak-go').forEach(b=>b.addEventListener('click', ()=>{
+    reviewCats = new Set([b.dataset.c]); closeStats();
+    document.querySelector('.tab-btn[data-tab="review"]').click(); startSession(); showToast(b.dataset.c+' 만 복습해요');
+  }));
+}
+function openStats(){ document.getElementById('stats-view').style.display='flex'; renderStatsView(); }
+function closeStats(){ document.getElementById('stats-view').style.display='none'; }
+document.getElementById('st-close').addEventListener('click', closeStats);
+document.getElementById('stats-open-btn').addEventListener('click', openStats);
 
 /* ---------- 노트의 빈칸 → 오늘의 복습 자동 연결 ---------- */
 function blankCat(n){ const p=(n.part||'').trim(), t=(n.title||'').trim(); return (p && t && p!==t) ? p+' '+t : (t||p||'기타'); }
