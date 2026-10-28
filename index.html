@@ -767,7 +767,7 @@
         <div id="scan-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px;"></div>
       </div>
       <label class="file-label" for="scan-file">사진 선택하기 (여러 장 가능)</label>
-      <input type="file" id="scan-file" accept="image/*" multiple style="display:none;">
+      <input type="file" id="scan-file" accept="image/*,application/pdf" multiple style="display:none;">
       <label class="file-label" for="scan-cam" style="margin-left:6px;">카메라로 찍기</label>
       <input type="file" id="scan-cam" accept="image/*" capture="environment" style="display:none;">
       <div class="hint" id="scan-hint-quiz" style="margin-top:10px;">문제집 한 페이지를 통째로 찍어도 돼요. 문제 텍스트와 보기(A~D)만 인식해요 — 정답·해설은 인식하지 않으니 아래 오답노트에서 직접 입력해주세요.</div>
@@ -932,6 +932,18 @@
       <h3>앱으로 설치</h3>
       <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;" id="install-text">홈 화면에 설치하면 주소창 없이 앱처럼 열리고, 인터넷이 없어도 복습할 수 있어요.</p>
       <div class="btn-row"><button class="btn" id="install-btn" style="display:none;">홈 화면에 설치</button></div>
+    </div>
+
+    <div class="settings-block" id="push-block">
+      <h3>복습 알림</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;" id="push-text">정한 시각에 오늘 복습을 아직 안 했을 때만 알려줘요. 이미 복습했거나 할 문제가 없으면 보내지 않아요.</p>
+      <div class="field" style="margin-bottom:10px;"><label>알림 시각</label><select id="push-hour"></select></div>
+      <div class="btn-row" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn" id="push-on-btn">알림 켜기</button>
+        <button class="btn outline" id="push-test-btn">테스트 알림</button>
+        <button class="btn outline" id="push-off-btn">끄기</button>
+      </div>
+      <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
     <div class="settings-block" id="scanmodel-block">
@@ -3487,6 +3499,7 @@ function renderStatStrip(){
   document.getElementById('stat-wrong-cell').addEventListener('click', toggleWrongQuestions);
   try{ renderBlankStudy(); }catch(e){ console.error(e); }
   try{ renderGoalChip(); }catch(e){ console.error(e); }
+  try{ updateBadgeAndPing(); }catch(e){ console.error(e); }
 }
 
 function renderWrongQuestions(){
@@ -3834,7 +3847,10 @@ function renderScanThumbs(){
   document.getElementById('scan-run-btn').disabled = !scanFiles.length;
 }
 function addScanFiles(list){
-  const fs = Array.from(list||[]).filter(f=>!f.type || f.type.startsWith('image/'));
+  const all = Array.from(list||[]);
+  const pdf = all.find(f=>f.type==='application/pdf' || /\.pdf$/i.test(f.name||''));
+  if(pdf){ openPdfPick(pdf); }
+  const fs = all.filter(f=>!(f===pdf) && (!f.type || f.type.startsWith('image/')));
   if(!fs.length) return;
   const room = SCAN_MAX - scanFiles.length;
   if(fs.length > room) showToast(`한 번에 최대 ${SCAN_MAX}장까지만 돼요`);
@@ -4170,6 +4186,161 @@ async function czImportPdf(file){
     }});
   });
 })();
+
+/* ---------- 복습 알림 · 앱 배지 · 공유 메뉴로 받기 ---------- */
+const PUSH_ID_KEY = 'noah-note-push-id', PUSH_HOUR_KEY = 'noah-note-push-hour';
+function pushSupported(){ return syncHostOk() && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function b64ToU8(b64){ const pad='='.repeat((4-b64.length%4)%4), raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(raw,c=>c.charCodeAt(0)); }
+async function pushApi(body){
+  const r = await fetch('/api/push', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if(!r.ok) throw new Error('서버 응답 '+r.status);
+  return r.json();
+}
+function pushId(){ let id = lsGet(PUSH_ID_KEY); if(!id){ id = 'u'+Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b=>b.toString(16).padStart(2,'0')).join(''); lsSet(PUSH_ID_KEY, id); } return id; }
+async function pushEnable(){
+  if(!pushSupported()) throw new Error('이 기기·브라우저에서는 알림을 쓸 수 없어요 (아이폰은 홈 화면에 추가한 앱에서만 가능)');
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted') throw new Error('알림이 허용되지 않았어요. 브라우저·기기 설정에서 허용해주세요');
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub){
+    const k = (await (await fetch('/api/push?key=1')).json()).key;
+    sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToU8(k) });
+  }
+  const hour = +document.getElementById('push-hour').value;
+  lsSet(PUSH_HOUR_KEY, String(hour));
+  await pushApi({ action:'sub', id:pushId(), sub:sub.toJSON(), hour, tz:-new Date().getTimezoneOffset() });
+  pushPingNow();
+}
+let pushPingAt = 0;
+function dueCount(){ const t = todayStr(); return data.questions.filter(q=>q.nextReviewDate<=t).length; }
+async function pushPingNow(){
+  if(!lsGet(PUSH_HOUR_KEY) || !lsGet(PUSH_ID_KEY)) return;
+  pushPingAt = Date.now();
+  try{ await pushApi({ action:'seen', id:lsGet(PUSH_ID_KEY), day:todayStr(), studied:(getTodayProgress().done>0), due:Math.max(0, dueCount()) }); }catch(_){}
+}
+function updateBadgeAndPing(){
+  try{ if(navigator.setAppBadge){ const n = Math.min(dueCount(), effDailyLimit()); if(n>0) navigator.setAppBadge(Math.min(n,99)); else navigator.clearAppBadge && navigator.clearAppBadge(); } }catch(_){}
+  if(Date.now()-pushPingAt > 30000) pushPingNow();
+}
+function pushUiInit(){
+  const sel = document.getElementById('push-hour');
+  for(let h=5;h<=23;h++){ const o=document.createElement('option'); o.value=h; o.textContent=(h<12?'오전 ':'오후 ')+(h%12===0?12:h%12)+'시'; sel.appendChild(o); }
+  sel.value = lsGet(PUSH_HOUR_KEY) || '20';
+  const txt = document.getElementById('push-text');
+  const status = ()=>{ if(lsGet(PUSH_HOUR_KEY)) txt.textContent = '알림이 켜져 있어요. 오늘 복습을 아직 안 했을 때만 정한 시각에 알려줘요.'; };
+  status();
+  document.getElementById('push-on-btn').addEventListener('click', async ()=>{
+    try{ await pushEnable(); status(); showToast('알림을 켰어요'); }catch(e){ showToast(e.message || '알림을 켜지 못했어요'); }
+  });
+  sel.addEventListener('change', ()=>{ if(lsGet(PUSH_HOUR_KEY)) document.getElementById('push-on-btn').click(); });
+  document.getElementById('push-test-btn').addEventListener('click', async ()=>{
+    try{ if(!lsGet(PUSH_ID_KEY)){ showToast('먼저 알림을 켜주세요'); return; } await pushApi({ action:'test', id:lsGet(PUSH_ID_KEY) }); showToast('테스트 알림을 보냈어요'); }catch(e){ showToast('보내지 못했어요. 알림을 다시 켜보세요'); }
+  });
+  document.getElementById('push-off-btn').addEventListener('click', async ()=>{
+    try{ const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); if(lsGet(PUSH_ID_KEY)) await pushApi({ action:'off', id:lsGet(PUSH_ID_KEY) }); }catch(_){}
+    lsSet(PUSH_HOUR_KEY, null); txt.textContent = '정한 시각에 오늘 복습을 아직 안 했을 때만 알려줘요. 이미 복습했거나 할 문제가 없으면 보내지 않아요.'; showToast('알림을 껐어요');
+  });
+}
+
+async function sharedIntake(){
+  if(!/[?&]share=1/.test(location.search)) return;
+  try{ history.replaceState(null, '', location.pathname); }catch(_){}
+  let files = [], text = '';
+  try{
+    const cache = await caches.open('noah-share');
+    for(const k of await cache.keys()){
+      const r = await cache.match(k);
+      if(k.url.endsWith('/shared-text')) text = (await r.text()).trim();
+      else { const blob = await r.blob(); files.push(new File([blob], decodeURIComponent(r.headers.get('x-name')||'shared'), { type: blob.type })); }
+    }
+    for(const k of await cache.keys()) await cache.delete(k);
+  }catch(_){}
+  if(!files.length && !text){ showToast('공유받은 내용이 없어요'); return; }
+  const body = aiPanel('공유받은 내용');
+  const cats = getNoteCategories();
+  body.innerHTML = `${files.length ? `<div class="st-card"><p class="st-h">사진·PDF ${files.length}개</p><div class="st-note" style="margin:0 0 10px;">스캔 화면에 담아서 인식할 수 있어요.</div><div class="btn-row"><button class="btn" id="sh-scan">스캔 화면으로 보내기</button></div></div>` : ''}
+    ${text ? `<div class="st-card"><p class="st-h">글</p><div class="st-form"><input type="text" id="sh-title" placeholder="노트 제목" value="${escapeAttr(text.split('\n')[0].slice(0,30))}">
+      <div class="field" style="margin-bottom:8px;"><select id="sh-cat">${cats.map(c=>`<option>${escapeHtml(c)}</option>`).join('')}<option value="__new">새 분류…</option></select></div>
+      <input type="text" id="sh-newcat" placeholder="새 분류 이름" style="display:${cats.length?'none':'block'};">
+      <textarea id="sh-text" style="min-height:120px;width:100%;font:inherit;font-size:14px;padding:10px;border:1px solid var(--line);">${escapeHtml(text)}</textarea></div>
+      <div class="btn-row" style="margin-top:10px;gap:8px;"><button class="btn" id="sh-save">노트로 저장</button><button class="btn outline" id="sh-cz">저장 + 빈칸 지정</button></div></div>` : ''}`;
+  if(files.length) body.querySelector('#sh-scan').addEventListener('click', ()=>{
+    document.getElementById('aipanel').style.display = 'none';
+    document.querySelector('.tab-btn[data-tab="scaninput"]').click(); addScanFiles(files);
+  });
+  if(text){
+    const catSel = body.querySelector('#sh-cat'), newCat = body.querySelector('#sh-newcat');
+    catSel.addEventListener('change', ()=>{ newCat.style.display = catSel.value==='__new' ? 'block' : 'none'; });
+    if(!cats.length) catSel.value = '__new';
+    const make = ()=>{
+      const part = (catSel.value==='__new' ? newCat.value.trim() : catSel.value) || '기타', title = body.querySelector('#sh-title').value.trim() || '공유받은 글', content = body.querySelector('#sh-text').value;
+      const n = { id:'n_'+Date.now()+'_'+Math.floor(Math.random()*1000), part, title, content, createdAt:todayStr(), att:[] };
+      data.notes.push(n); return n;
+    };
+    body.querySelector('#sh-save').addEventListener('click', async ()=>{ make(); await saveData(); renderNotes && renderNotes(); document.getElementById('aipanel').style.display='none'; showToast('노트로 저장했어요'); });
+    body.querySelector('#sh-cz').addEventListener('click', async ()=>{
+      const n = make(); await saveData(); document.getElementById('aipanel').style.display='none';
+      czOpen({ text:n.content, bl:[], title:blankCat(n), mode:'pick', onSave: async (t,b)=>{ n.content = t; n.cz = b.length ? {text:t, bl:b} : null; const added = blankReconcileNote(n); await saveData(); renderNotes && renderNotes(); renderStatStrip(); showToast(b.length ? `빈칸 ${b.length}개를 저장했어요 (복습 문제 ${added}개 추가)` : '노트로 저장했어요'); } });
+    });
+  }
+}
+
+/* ---------- PDF·교재: 페이지를 골라 스캔에 담기 ---------- */
+async function openPdfPick(file){
+  const body = aiPanel('PDF에서 페이지 고르기');
+  body.innerHTML = '<div class="st-note">PDF를 불러오는 중이에요...</div>';
+  let pdf;
+  try{ const lib = await loadPdfJs(); pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise; }
+  catch(e){ console.error('pdf', e); body.innerHTML = '<div class="st-note">PDF를 열지 못했어요. 인터넷 연결을 확인하거나 PDF를 사진으로 캡처해서 올려주세요.</div>'; return; }
+  const n = pdf.numPages, shown = Math.min(n, 60), room = Math.max(0, SCAN_MAX - scanFiles.length);
+  const sel = new Set(); for(let i=1;i<=Math.min(5, shown, room);i++) sel.add(i);
+  const perPage = scanMode()==='eco' ? '3~5원' : '약 50원';
+  body.innerHTML = `<div class="st-card"><p class="st-h">${escapeHtml(file.name||'PDF')} · 총 ${n}쪽</p>
+    <div class="st-note" style="margin:0 0 8px;">스캔할 페이지를 고르세요 (한 번에 최대 ${room}쪽). 페이지마다 AI 요금이 나가요 (${scanMode()==='eco'?'절약':'정확'} 모드: 쪽당 ${perPage}).${n>shown?` 앞 ${shown}쪽만 보여줘요.`:''}</div>
+    <div class="btn-row" style="gap:8px;margin-bottom:8px;"><button class="btn outline" id="pp-all" style="padding:8px 12px;font-size:13px;">앞에서부터 채우기</button><button class="btn outline" id="pp-none" style="padding:8px 12px;font-size:13px;">전체 해제</button></div>
+    <div id="pp-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+    <div class="btn-row" style="margin-top:12px;"><button class="btn" id="pp-go">선택한 쪽을 스캔에 담기</button></div><div class="st-note" id="pp-info"></div></div>`;
+  const grid = body.querySelector('#pp-grid'), info = body.querySelector('#pp-info'), go = body.querySelector('#pp-go');
+  const refresh = ()=>{
+    grid.querySelectorAll('.pp').forEach(d=>{ const on = sel.has(+d.dataset.p); d.style.outline = on ? '3px solid var(--ink)' : '1px solid var(--line)'; const ck = d.querySelector('.ck'); ck.textContent = on ? '✓' : ''; ck.style.background = on ? 'var(--ink)' : 'rgba(255,255,255,.85)'; ck.style.border = on ? 'none' : '1px solid var(--ink-soft)'; });
+    info.textContent = `${sel.size}쪽 선택됨`; go.disabled = !sel.size;
+  };
+  for(let i=1;i<=shown;i++){
+    const d = document.createElement('div'); d.className='pp'; d.dataset.p=i; d.style.cssText='position:relative;background:#fff;cursor:pointer;min-height:90px;';
+    d.innerHTML = `<canvas style="width:100%;display:block;"></canvas><span class="ck" style="position:absolute;top:4px;right:4px;background:var(--ink);color:#fff;width:20px;height:20px;text-align:center;font-size:13px;line-height:20px;"></span><span style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:1px 5px;">${i}</span>`;
+    d.addEventListener('click', ()=>{ if(sel.has(i)) sel.delete(i); else if(sel.size<room) sel.add(i); else showToast(`한 번에 최대 ${room}쪽까지예요`); refresh(); });
+    grid.appendChild(d);
+  }
+  refresh();
+  body.querySelector('#pp-none').addEventListener('click', ()=>{ sel.clear(); refresh(); });
+  body.querySelector('#pp-all').addEventListener('click', ()=>{ sel.clear(); for(let i=1;i<=shown && sel.size<room;i++) sel.add(i); refresh(); });
+  go.addEventListener('click', async ()=>{
+    go.disabled = true; const pages = Array.from(sel).sort((a,b)=>a-b), files = [];
+    for(let k=0;k<pages.length;k++){
+      info.textContent = `${k+1}/${pages.length}쪽 변환 중...`;
+      const page = await pdf.getPage(pages[k]), v0 = page.getViewport({scale:1});
+      const v = page.getViewport({scale: Math.min(3, 1600/Math.max(v0.width, v0.height))});
+      const cv = document.createElement('canvas'); cv.width = Math.ceil(v.width); cv.height = Math.ceil(v.height);
+      const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0,0,cv.width,cv.height);
+      await page.render({ canvasContext:c, viewport:v }).promise;
+      const blob = await canvasToJpeg(cv, 0.85); cv.width = cv.height = 0;
+      files.push(new File([blob], (file.name||'pdf').replace(/\.pdf$/i,'')+'-p'+pages[k]+'.jpg', { type:'image/jpeg' }));
+    }
+    document.getElementById('aipanel').style.display = 'none';
+    addScanFiles(files); showToast(`${files.length}쪽을 스캔에 담았어요. 아래에서 인식하기를 누르세요`);
+  });
+  // 썸네일은 순서대로 천천히 그림 (화면이 먼저 뜨도록)
+  for(let i=1;i<=shown;i++){
+    try{
+      if(document.getElementById('aipanel').style.display==='none') break;
+      const page = await pdf.getPage(i), v0 = page.getViewport({scale:1}), v = page.getViewport({scale: 220/v0.width});
+      const cv = grid.querySelector(`.pp[data-p="${i}"] canvas`); if(!cv) break;
+      cv.width = Math.ceil(v.width); cv.height = Math.ceil(v.height);
+      await page.render({ canvasContext: cv.getContext('2d'), viewport:v }).promise;
+    }catch(_){}
+  }
+}
 
 /* ---------- AI 텍스트 호출 · 일반 퀴즈 생성 · 틀린 문제 변형 ---------- */
 async function aiJson(prompt, maxTokens){
@@ -5317,6 +5488,7 @@ function selectSubject(name){
   populateCategoryOptions();
   setInputType('quiz');
   saveData();
+  setTimeout(()=>{ try{ sharedIntake(); }catch(e){ console.error(e); } }, 300);
 }
 
 let dataReady = false;
@@ -5655,6 +5827,7 @@ document.getElementById('backup-auto-btn').addEventListener('click', ()=>{
 });
 
 (async function init(){
+  try{ pushUiInit(); }catch(e){ console.error(e); }
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(_){}
   await loadAllSubjects();
   await probeStorage();
