@@ -419,10 +419,9 @@
   .hist-bar i{display:block;height:100%;background:var(--green);}
   /* ---- 복습 카테고리 다중 선택 ---- */
   .cat-pick-btn{width:100%;text-align:left;padding:12px 14px;border:1px solid var(--ink);background:#fff;font:700 14px inherit;font-family:inherit;color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;}
-  #blank-study-area .bs-label{font-size:12px;font-weight:700;color:var(--ink-soft);margin:0 0 6px;}
   #blank-study-area .bs-bar{width:100%;text-align:left;padding:12px 14px;border:1px solid var(--ink);background:#fff;font:700 14px inherit;font-family:inherit;color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;box-sizing:border-box;}
   #blank-study-area .bs-bar .arrow{font-size:11px;color:var(--ink-soft);font-weight:400;}
-  #blank-study-area .bs-empty{border:1px dashed var(--line);background:#fff;padding:12px 14px;font-size:12px;line-height:1.5;color:var(--ink-soft);}
+  #blank-study-area .bs-bar.bs-off{border-color:var(--line);color:var(--ink-soft);font-size:13px;cursor:default;}
   #bs-list{border:1px solid var(--line);border-top:none;background:#fff;}
   #bs-list .bs-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);}
   #bs-list .bs-row:last-child{border-bottom:none;}
@@ -665,9 +664,9 @@
         <button class="btn" id="cat-pick-apply" type="button" style="width:100%;margin-top:10px;">선택한 카테고리로 풀기</button>
       </div>
     </div>
+    <div id="blank-study-area" class="field" style="display:none;margin-bottom:18px;"></div>
     <div id="quota-gauge"></div>
     <div class="stat-line" id="stat-strip"></div>
-    <div id="blank-study-area" style="display:none;margin-bottom:18px;"></div>
     <div id="wrong-questions-area" style="display:none;margin-bottom:22px;">
       <p class="section-title" style="font-size:15px;">틀린 문제</p>
       <div id="wrong-questions-list"></div>
@@ -4100,6 +4099,7 @@ async function czImportPdf(file){
 })();
 
 /* ---------- 노트의 빈칸 → 오늘의 복습 자동 연결 ---------- */
+function blankCat(n){ const p=(n.part||'').trim(), t=(n.title||'').trim(); return (p && t && p!==t) ? p+' '+t : (t||p||'기타'); }
 function blankItemsOf(n){
   const out = [], clean = t=>String(t||'').replace(/\s*\n\s*/g,' ').trim();
   (n.att||[]).forEach(a=>{
@@ -4109,8 +4109,8 @@ function blankItemsOf(n){
         const txt = clean(c.t);
         if(c.bl && txt){
           const kids = (c.ch||[]).map(k=>clean(k.t)).filter(Boolean);
-          out.push({ key:'m:'+c.id, q:(path.length ? path.join(' › ') : (n.title||'마인드맵')) + ' › ?', a:txt,
-            ex:`마인드맵 '${n.title}'`+(kids.length ? ' · 하위: '+kids.join(', ') : '') });
+          out.push({ key:'m:'+c.id, q:(path.length ? path.join(' › ') : blankCat(n)) + ' › ?', a:txt,
+            ex:`마인드맵 '${blankCat(n)}'`+(kids.length ? ' · 하위: '+kids.join(', ') : '') });
         }
         w(c, x.hidden ? path : path.concat(txt));
       });
@@ -4118,7 +4118,7 @@ function blankItemsOf(n){
   });
   if(n.cz && (n.cz.bl||[]).length){
     const toks = czToks(n.cz.text);
-    n.cz.bl.forEach(i=>{ if(toks[i]) out.push({ key:'z:'+i+':'+toks[i], q:czSentenceQ(toks, i), a:toks[i], ex:`글 빈칸 퀴즈 · ${n.title}` }); });
+    n.cz.bl.forEach(i=>{ if(toks[i]) out.push({ key:'z:'+i+':'+toks[i], q:czSentenceQ(toks, i), a:toks[i], ex:`글 빈칸 퀴즈 · ${blankCat(n)}` }); });
   }
   return out;
 }
@@ -4132,13 +4132,13 @@ function blankReconcileNote(n){
   data.questions = data.questions.filter(q=>{
     if(!(q.src==='blank' && q.srcNote===n.id)) return true;
     const e = byKey.get(q.bkey); if(!e || seen.has(q.bkey)) return false;
-    seen.add(q.bkey); q.part = n.title; q.question = e.q; q.answer = e.a; q.explanation = e.ex; return true;
+    seen.add(q.bkey); q.part = blankCat(n); q.question = e.q; q.answer = e.a; q.explanation = e.ex; return true;
   });
-  const have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
+  const cat = blankCat(n), have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
   exp.forEach((e,k)=>{
-    if(seen.has(e.key) || have.has(n.title+'||'+e.q)) return;
-    have.add(n.title+'||'+e.q);
-    data.questions.push({ id:'m_'+Date.now()+'_'+k+'_'+Math.floor(Math.random()*10000), type:'memo', part:n.title, question:e.q, choices:null, answer:e.a, explanation:e.ex,
+    if(seen.has(e.key) || have.has(cat+'||'+e.q)) return;
+    have.add(cat+'||'+e.q);
+    data.questions.push({ id:'m_'+Date.now()+'_'+k+'_'+Math.floor(Math.random()*10000), type:'memo', part:cat, question:e.q, choices:null, answer:e.a, explanation:e.ex,
       box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr(), src:'blank', srcNote:n.id, bkey:e.key });
     added++;
   });
@@ -4160,22 +4160,22 @@ function renderBlankStudy(){
   });
   if(!sets.length){
     area.style.display = 'block';
-    area.innerHTML = `<div class="bs-label">📝 빈칸 학습</div><div class="bs-empty">빈칸을 지정한 노트가 아직 없어요. 노트에서 마인드맵·글에 빈칸을 정해 저장하면 여기에 나타나고, 오늘의 복습 문제로도 나와요.</div>`;
+    area.innerHTML = `<label>빈칸 학습</label><div class="bs-bar bs-off"><span>빈칸을 정한 노트가 아직 없어요</span></div>`;
     return;
   }
   const open = area.dataset.open==='1';
   area.style.display = 'block';
-  area.innerHTML = `<div class="bs-label">📝 빈칸 학습</div>
-  <button class="bs-bar" id="bs-head" type="button"><span>빈칸이 있는 노트 ${sets.length}개</span><span class="arrow">${open?'▲':'▼'}</span></button>
+  area.innerHTML = `<label>빈칸 학습</label>
+  <button class="bs-bar" id="bs-head" type="button"><span>노트 선택 · ${sets.length}개</span><span class="arrow">${open?'▲':'▼'}</span></button>
   <div id="bs-list" style="display:${open?'block':'none'};">${sets.map((x,i)=>`<div class="bs-row">
-    <div style="min-width:0;"><div class="bs-name">${escapeHtml(x.n.title)}</div>
-    <div class="bs-sub">${x.kind==='mm'?'마인드맵':'글'} · 빈칸 ${x.cnt}개 · ${escapeHtml(x.n.part||'기타')}</div></div>
+    <div style="min-width:0;"><div class="bs-name">${escapeHtml(blankCat(x.n))}</div>
+    <div class="bs-sub">${x.kind==='mm'?'마인드맵':'글 빈칸'} · 빈칸 ${x.cnt}개</div></div>
     <button class="bs-go" data-i="${i}" type="button">학습</button></div>`).join('')}</div>`;
   document.getElementById('bs-head').addEventListener('click', ()=>{ area.dataset.open = area.dataset.open==='1' ? '0' : '1'; renderBlankStudy(); });
   area.querySelectorAll('button[data-i]').forEach(b=>b.addEventListener('click', ()=>{
     const x = sets[+b.dataset.i];
-    if(x.kind==='mm') mmStudyOpen(x.trees, x.n.title, x.n.title);
-    else czOpen({ text:x.n.cz.text, bl:x.n.cz.bl, title:x.n.title, mode:'study' });
+    if(x.kind==='mm') mmStudyOpen(x.trees, blankCat(x.n), blankCat(x.n));
+    else czOpen({ text:x.n.cz.text, bl:x.n.cz.bl, title:blankCat(x.n), mode:'study' });
   }));
 }
 
