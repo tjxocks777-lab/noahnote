@@ -419,6 +419,16 @@
   .hist-bar i{display:block;height:100%;background:var(--green);}
   /* ---- 복습 카테고리 다중 선택 ---- */
   .cat-pick-btn{width:100%;text-align:left;padding:12px 14px;border:1px solid var(--ink);background:#fff;font:700 14px inherit;font-family:inherit;color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  #blank-study-area .bs-label{font-size:12px;font-weight:700;color:var(--ink-soft);margin:0 0 6px;}
+  #blank-study-area .bs-bar{width:100%;text-align:left;padding:12px 14px;border:1px solid var(--ink);background:#fff;font:700 14px inherit;font-family:inherit;color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;box-sizing:border-box;}
+  #blank-study-area .bs-bar .arrow{font-size:11px;color:var(--ink-soft);font-weight:400;}
+  #blank-study-area .bs-empty{border:1px dashed var(--line);background:#fff;padding:12px 14px;font-size:12px;line-height:1.5;color:var(--ink-soft);}
+  #bs-list{border:1px solid var(--line);border-top:none;background:#fff;}
+  #bs-list .bs-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);}
+  #bs-list .bs-row:last-child{border-bottom:none;}
+  #bs-list .bs-name{font-weight:700;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #bs-list .bs-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  #bs-list .bs-go{border:1px solid var(--ink);background:var(--ink);color:#fff;padding:7px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .cat-pick-btn .arrow{font-size:11px;color:var(--ink-soft);}
   #cat-pick-panel{border:1px solid var(--line);background:#fff;padding:10px;margin-top:6px;}
   #cat-pick-search{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);font:inherit;font-size:14px;}
@@ -4150,17 +4160,17 @@ function renderBlankStudy(){
   });
   if(!sets.length){
     area.style.display = 'block';
-    area.innerHTML = `<p class="section-title" style="font-size:15px;margin-bottom:6px;">📝 빈칸 학습</p>
-    <div class="hint" style="margin:0;">빈칸을 지정한 노트가 아직 없어요. 노트(마인드맵·글 빈칸)에서 빈칸을 지정해 저장하면 여기에 나타나고, 오늘의 복습 문제로도 나와요.</div>`;
+    area.innerHTML = `<div class="bs-label">📝 빈칸 학습</div><div class="bs-empty">빈칸을 지정한 노트가 아직 없어요. 노트에서 마인드맵·글에 빈칸을 정해 저장하면 여기에 나타나고, 오늘의 복습 문제로도 나와요.</div>`;
     return;
   }
   const open = area.dataset.open==='1';
   area.style.display = 'block';
-  area.innerHTML = `<p class="section-title" id="bs-head" style="font-size:15px;cursor:pointer;margin-bottom:8px;">📝 빈칸 학습 <span style="font-weight:400;color:var(--ink-soft);">(${sets.length}) ${open?'▾':'▸'}</span></p>
-  <div id="bs-list" style="display:${open?'block':'none'};">${sets.map((x,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);">
-    <div style="min-width:0;"><div style="font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(x.n.title)}</div>
-    <div style="font-size:12px;color:var(--ink-soft);">${x.kind==='mm'?'마인드맵':'글'} · 빈칸 ${x.cnt}개 · ${escapeHtml(x.n.part||'기타')}</div></div>
-    <button class="btn" data-i="${i}" style="padding:8px 14px;font-size:13px;white-space:nowrap;">학습</button></div>`).join('')}</div>`;
+  area.innerHTML = `<div class="bs-label">📝 빈칸 학습</div>
+  <button class="bs-bar" id="bs-head" type="button"><span>빈칸이 있는 노트 ${sets.length}개</span><span class="arrow">${open?'▲':'▼'}</span></button>
+  <div id="bs-list" style="display:${open?'block':'none'};">${sets.map((x,i)=>`<div class="bs-row">
+    <div style="min-width:0;"><div class="bs-name">${escapeHtml(x.n.title)}</div>
+    <div class="bs-sub">${x.kind==='mm'?'마인드맵':'글'} · 빈칸 ${x.cnt}개 · ${escapeHtml(x.n.part||'기타')}</div></div>
+    <button class="bs-go" data-i="${i}" type="button">학습</button></div>`).join('')}</div>`;
   document.getElementById('bs-head').addEventListener('click', ()=>{ area.dataset.open = area.dataset.open==='1' ? '0' : '1'; renderBlankStudy(); });
   area.querySelectorAll('button[data-i]').forEach(b=>b.addEventListener('click', ()=>{
     const x = sets[+b.dataset.i];
