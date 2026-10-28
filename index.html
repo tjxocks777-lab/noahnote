@@ -4148,7 +4148,12 @@ function renderBlankStudy(){
     if(trees.length) sets.push({ n, kind:'mm', trees, cnt:nm });
     if(n.cz && (n.cz.bl||[]).length) sets.push({ n, kind:'cz', cnt:n.cz.bl.length });
   });
-  if(!sets.length){ area.style.display = 'none'; area.innerHTML = ''; return; }
+  if(!sets.length){
+    area.style.display = 'block';
+    area.innerHTML = `<p class="section-title" style="font-size:15px;margin-bottom:6px;">📝 빈칸 학습</p>
+    <div class="hint" style="margin:0;">빈칸을 지정한 노트가 아직 없어요. 노트(마인드맵·글 빈칸)에서 빈칸을 지정해 저장하면 여기에 나타나고, 오늘의 복습 문제로도 나와요.</div>`;
+    return;
+  }
   const open = area.dataset.open==='1';
   area.style.display = 'block';
   area.innerHTML = `<p class="section-title" id="bs-head" style="font-size:15px;cursor:pointer;margin-bottom:8px;">📝 빈칸 학습 <span style="font-weight:400;color:var(--ink-soft);">(${sets.length}) ${open?'▾':'▸'}</span></p>
