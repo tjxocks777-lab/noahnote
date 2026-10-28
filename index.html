@@ -2440,7 +2440,8 @@ function mmSyncBar(){
   neEl('mm-join').disabled = !node;
   neEl('mm-blank').disabled = !node;
   neEl('mm-blank').textContent = node && node.bl ? '빈칸 해제' : '빈칸 지정';
-  neEl('mm-blank').classList.toggle('on', !!(node && node.bl));
+  neEl('mm-blank').classList.toggle('on', !!MM.blankMode);
+  neEl('mm-blank').textContent = MM.blankMode ? '빈칸 지정 중 · 끝내기' : '빈칸 지정';
   { const bn = mmBlankCount(MM.tree); neEl('mm-blank-count').textContent = bn ? `빈칸 ${bn}개` : ''; }
   neEl('mm-join').textContent = MM.joinTo ? '합치기 취소' : '🔗 합치기';
   neEl('mm-join').classList.toggle('on', !!MM.joinTo);
@@ -2455,7 +2456,7 @@ function mmSyncBar(){
   neEl('mm-colors').style.display = node && !isRoot ? 'flex' : 'none';
 }
 function mmOpen(attId){
-  MM.editId = attId || null; MM.undo = []; MM.joinTo = null;
+  MM.editId = attId || null; MM.undo = []; MM.joinTo = null; MM.blankMode = false;
   const a = attId && NE.att.find(x=>x.id===attId);
   const base = a && a.mm ? mmClone(a.mm) : mmNew('');
   MM.tree = base.hidden ? base : { id:'sr'+Date.now().toString(36), t:'', hidden:true, ch:[base] };
@@ -2633,6 +2634,10 @@ async function mmFinish(){
       }
       MM.sel = to; mmRender(); return;
     }
+    if(MM.blankMode){            // 빈칸 지정 모드: 칸을 누를 때마다 빈칸 on/off (키보드 안 뜸)
+      if(hit){ mmPush(); if(hit.n.bl) delete hit.n.bl; else hit.n.bl = true; MM.sel = hit.n.id; mmRender(); }
+      return;
+    }
     MM.sel = hit ? hit.n.id : null; mmRender();
     if(hit){ const ti = neEl('mm-text'); ti.focus(); ti.select(); }
   });
@@ -2717,13 +2722,15 @@ async function mmFinish(){
   neEl('mm-join').addEventListener('click', ()=>{
     if(MM.joinTo){ MM.joinTo = null; mmRender(); return; }
     if(!MM.sel) return;
+    MM.blankMode = false;
     MM.joinTo = MM.sel; mmRender();
     try{ neEl('mm-text').blur(); }catch(_){}
     showToast('이 칸으로 합칠 칸(선이 나올 칸)을 터치하세요. 이미 합친 칸을 누르면 해제돼요');
   });
   neEl('mm-blank').addEventListener('click', ()=>{
-    const f = MM.sel && mmFind(MM.tree, MM.sel); if(!f) return;
-    mmPush(); if(f.node.bl) delete f.node.bl; else f.node.bl = true; mmRender();
+    MM.blankMode = !MM.blankMode; MM.joinTo = null;
+    if(MM.blankMode){ try{ neEl('mm-text').blur(); }catch(_){} showToast('빈칸 모드 ON — 가릴 칸을 눌러 노란색으로 만드세요. 다시 누르면 해제돼요'); }
+    mmRender();
   });
   neEl('mm-studyopen').addEventListener('click', ()=>{
     const r0 = MM.tree.ch[0]; const t = (r0 && r0.t && r0.t.trim()) || '마인드맵';
