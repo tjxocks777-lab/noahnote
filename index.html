@@ -66,7 +66,7 @@
 
   /* ---- confirm modal ---- */
   #confirm-modal{
-    display:none;position:fixed;inset:0;z-index:200;
+    display:none;position:fixed;inset:0;z-index:400;
     align-items:center;justify-content:center;
     background:rgba(22,35,63,0.55);
     padding:20px;
@@ -1903,7 +1903,7 @@ function neBuildAtt(){
     d.appendChild(img);
     const x = document.createElement('button'); x.className = 'ne-att-x'; x.textContent = '✕';
     x.setAttribute('aria-label','첨부 삭제');
-    x.addEventListener('click', ()=>neRemoveAtt(a.id));
+    x.addEventListener('click', ()=>confirmDelete(()=>neRemoveAtt(a.id), '이 첨부(사진·마인드맵)를 정말 삭제하시겠습니까?'));
     d.appendChild(x);
     if(a.mm){
       const eb = document.createElement('button'); eb.className = 'ne-att-edit'; eb.textContent = '✎ 편집';
@@ -2422,7 +2422,7 @@ async function mmFinish(){
     if(f.parent.hidden && f.parent.ch.length<=1) return;
     const n = (function cnt(x){ return 1 + x.ch.reduce((s,c)=>s+cnt(c),0); })(f.node);
     const go = ()=>{ mmPush(); const i = f.parent.ch.indexOf(f.node); f.parent.ch.splice(i,1); mmPrune(); MM.sel = f.parent.hidden ? f.parent.ch[Math.max(0,i-1)].id : f.parent.id; mmRender(); };
-    if(n>1) showConfirmModal(`이 칸과 아래 가지 ${n}개를 삭제할까요?`, go); else go();
+    confirmDelete(go, n>1 ? `이 칸과 아래 가지 ${n}개를 정말 삭제하시겠습니까?` : '이 칸을 정말 삭제하시겠습니까?');
   });
   neEl('mm-undo').addEventListener('click', ()=>{
     const t = MM.undo.pop(); if(!t) return;
@@ -2730,7 +2730,7 @@ function renderNotesListView(){
     b.addEventListener('click', (e)=>{ e.stopPropagation(); openNoteEdit(b.dataset.id); });
   });
   container.querySelectorAll('.note-del-btn').forEach(b=>{
-    b.addEventListener('click', (e)=>{ e.stopPropagation(); deleteNote(b.dataset.id); });
+    b.addEventListener('click', (e)=>{ e.stopPropagation(); confirmDelete(()=>deleteNote(b.dataset.id)); });
   });
   hydrateNV(container);
 }
@@ -2768,13 +2768,15 @@ function attachMemoRowHandlers(container, rerenderFn, isFavoritesView){
   });
   container.querySelectorAll('.memo-edit-btn').forEach(b=>b.addEventListener('click', ()=>openMemoEdit(b.dataset.id)));
   container.querySelectorAll('.memo-del-btn').forEach(b=>{
-    b.addEventListener('click', async (e)=>{
+    b.addEventListener('click', (e)=>{
       e.stopPropagation();
-      data.questions = data.questions.filter(q=>q.id!==b.dataset.id);
-      await saveData();
-      rerenderFn();
-      renderStatStrip();
-      showToast('삭제했어요');
+      confirmDelete(async ()=>{
+        data.questions = data.questions.filter(q=>q.id!==b.dataset.id);
+        await saveData();
+        rerenderFn();
+        renderStatStrip();
+        showToast('삭제했어요');
+      });
     });
   });
   container.querySelectorAll('.memo-fav-btn').forEach(b=>{
@@ -3454,7 +3456,7 @@ function renderScanThumbs(){
     const u = URL.createObjectURL(f); scanThumbUrls.push(u);
     const d = document.createElement('div'); d.className = 'scan-thumb';
     d.innerHTML = `<img src="${u}" alt=""><button type="button" aria-label="삭제">✕</button>`;
-    d.querySelector('button').addEventListener('click', ()=>{ scanFiles.splice(i,1); renderScanThumbs(); document.getElementById('scan-run-btn').disabled = !scanFiles.length; });
+    d.querySelector('button').addEventListener('click', ()=>{ confirmDelete(()=>{ scanFiles.splice(i,1); renderScanThumbs(); document.getElementById('scan-run-btn').disabled = !scanFiles.length; }); });
     box.appendChild(d);
   });
   document.getElementById('scan-run-btn').disabled = !scanFiles.length;
@@ -3784,8 +3786,10 @@ function renderNotePreview(title, content, relatedQuestions){
     </div>`).join('');
     listEl.querySelectorAll('.np-related-del').forEach(b=>{
       b.addEventListener('click', ()=>{
-        pendingQuestions = pendingQuestions.filter(q=>q._id!==b.dataset.rid);
-        renderRelatedList();
+        confirmDelete(()=>{
+          pendingQuestions = pendingQuestions.filter(q=>q._id!==b.dataset.rid);
+          renderRelatedList();
+        });
       });
     });
   }
@@ -3996,7 +4000,7 @@ function renderWrongArchive(){
   container.querySelectorAll('.memo-group-title').forEach(el=>el.addEventListener('click', ()=>el.closest('.memo-group').classList.toggle('expanded')));
   container.querySelectorAll('.note-item-title').forEach(el=>el.addEventListener('click', ()=>el.closest('.note-item').classList.toggle('expanded')));
   container.querySelectorAll('.wa-edit').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); editQuestion(b.dataset.id); }));
-  container.querySelectorAll('.wa-del').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); deleteQuestion(b.dataset.id); }));
+  container.querySelectorAll('.wa-del').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); confirmDelete(()=>deleteQuestion(b.dataset.id)); }));
 }
 document.getElementById('wrong-f-all').addEventListener('click', ()=>{ wrongOnly = false; renderWrongArchive(); });
 document.getElementById('wrong-f-wrong').addEventListener('click', ()=>{ wrongOnly = true; renderWrongArchive(); });
@@ -4080,11 +4084,13 @@ function renderNotes(){
   });
 
   container.querySelectorAll('.note-del').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      data.drafts = data.drafts.filter(d=>d.id!==btn.dataset.id);
-      await saveData();
-      renderNotes();
-      renderStatStrip();
+    btn.addEventListener('click', ()=>{
+      confirmDelete(async ()=>{
+        data.drafts = data.drafts.filter(d=>d.id!==btn.dataset.id);
+        await saveData();
+        renderNotes();
+        renderStatStrip();
+      });
     });
   });
 
@@ -4215,7 +4221,7 @@ function renderCatSummary(){
   summary.querySelectorAll('.cat-del-btn').forEach(b=>{
     b.addEventListener('click', (e)=>{
       e.stopPropagation();
-      deleteQuestion(b.dataset.id);
+      confirmDelete(()=>deleteQuestion(b.dataset.id));
     });
   });
 }
@@ -4384,6 +4390,7 @@ document.getElementById('switch-subject-btn').addEventListener('click', ()=>{
 /* ---------- 확인 모달 ---------- */
 let confirmModalCallback = null;
 let confirmModalCancel = null;
+function confirmDelete(cb, msg){ showConfirmModal(msg || '정말 삭제하시겠습니까?', cb, null, '삭제', '취소'); }
 function showConfirmModal(message, onConfirm, onCancel, yesLabel, noLabel){
   document.getElementById('confirm-modal-message').textContent = message;
   document.getElementById('confirm-modal-yes').textContent = yesLabel || '예';
