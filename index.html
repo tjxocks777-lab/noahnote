@@ -573,6 +573,16 @@
   #mm-study{display:none;position:fixed;inset:0;z-index:180;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
   #ms2-canvas{display:block;touch-action:manipulation;}
   .mm-info{font-size:12.5px;color:var(--ink-soft);margin:0 0 8px;line-height:1.5;}
+  #cz{display:none;position:fixed;inset:0;z-index:190;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
+  #cz-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;padding:14px 14px 30px;}
+  #cz-text{display:block;width:100%;box-sizing:border-box;min-height:46vh;font-size:16px;line-height:1.7;padding:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;margin-bottom:10px;}
+  #cz-view{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:17px;line-height:2.1;color:var(--ink);}
+  #cz-view .w{border-radius:6px;padding:1px 1px;}
+  #cz-view.pick .w{cursor:pointer;}
+  #cz-view .w.bl{background:#FFF1A8;box-shadow:0 0 0 2px #FFF1A8;}
+  #cz-view .w.hid{background:#D5DBE6;color:transparent;box-shadow:0 0 0 2px #D5DBE6;cursor:pointer;user-select:none;border-bottom:2px dashed #6B7789;}
+  #cz-view .w.rev{background:#FFF1A8;box-shadow:0 0 0 2px #FFF1A8;cursor:pointer;}
+  #cz .mm-bar .mm-row{margin-bottom:6px;}
   .mm-bar{background:var(--card);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));}
   .mm-bar{max-height:48vh;overflow-y:auto;}
   .mm-bar textarea{display:block;width:100%;box-sizing:border-box;font-size:16px;padding:9px 10px;border:1px solid var(--line);margin-bottom:8px;font-family:inherit;resize:none;line-height:1.4;max-height:110px;}
@@ -971,6 +981,39 @@
   </div>
 </div>
 
+<!-- 글(텍스트·PDF) 빈칸 만들기 / 빈칸 학습 -->
+<div id="cz">
+  <div class="ne-top">
+    <button class="ne-done" id="cz-close">← 닫기</button>
+    <span class="ne-heading" id="cz-title">글 빈칸</span>
+    <button class="ne-small" id="cz-save">저장</button>
+  </div>
+  <div class="ne-tools" id="cz-tabs">
+    <button class="ne-tool active" data-m="text">① 글</button>
+    <button class="ne-tool" data-m="pick">② 빈칸 고르기</button>
+    <button class="ne-tool" data-m="study">③ 학습</button>
+  </div>
+  <div id="cz-body">
+    <div id="cz-p-text">
+      <textarea id="cz-text" placeholder="공부할 글을 붙여넣거나 직접 입력하세요. PDF나 사진에서 가져올 수도 있어요." spellcheck="false"></textarea>
+      <div class="mm-row">
+        <button id="cz-pdf">📄 PDF에서 글 가져오기</button>
+        <button id="cz-img">📷 사진에서 글 읽기 (AI)</button>
+      </div>
+      <input type="file" id="cz-pdf-in" accept="application/pdf" style="display:none;">
+      <input type="file" id="cz-img-in" accept="image/*" multiple style="display:none;">
+      <p class="mm-info" id="cz-info1"></p>
+    </div>
+    <div id="cz-p-view" style="display:none;"><div id="cz-view"></div></div>
+  </div>
+  <div class="mm-bar">
+    <p class="mm-info" id="cz-info"></p>
+    <div class="mm-row" id="cz-r-text"><button id="cz-to-pick">빈칸 고르기 ▸</button></div>
+    <div class="mm-row" id="cz-r-pick" style="display:none;"><button id="cz-auto">자동 추천 (약 20%)</button><button id="cz-clear">모두 해제</button><button id="cz-to-study">학습 ▸</button></div>
+    <div class="mm-row" id="cz-r-study" style="display:none;"><button id="cz-hide">모두 가리기</button><button id="cz-show">모두 보기</button><button id="cz-memo">암기 항목으로 보내기</button></div>
+  </div>
+</div>
+
 <!-- 요점정리 전체화면 필기 (텍스트 + 펜 + 사진/PDF 첨부) -->
 <div id="note-editor">
   <div class="ne-top">
@@ -990,6 +1033,7 @@
     <button class="ne-small" id="ne-touch">손가락 그리기: 켜짐</button>
     <button class="ne-small" id="ne-attach-btn">📎 사진·PDF</button>
     <button class="ne-small" id="ne-mm-btn">🧠 마인드맵</button>
+    <button class="ne-small" id="ne-cz-btn">📝 글 빈칸</button>
     <input type="file" id="ne-attach-input" accept="image/*,application/pdf" multiple style="display:none;">
   </div>
   <div class="ne-tools ne-pen-row" id="ne-pen-row">
@@ -1729,21 +1773,24 @@ document.getElementById('note-save-btn').addEventListener('click', async ()=>{
 
 /* ---------- 요점정리 전체화면 필기 (텍스트 + 펜 + 사진/PDF 첨부) ---------- */
 function attCopy(a){ const o = {id:a.id, ar:a.ar}; if(a.mm) o.mm = a.mm; return o; }
-function newNoteDraft(){ return { strokes:[], att:[], freeH:0, drawing:'', drawingW:0, drawingH:0 }; }
+function newNoteDraft(){ return { strokes:[], att:[], freeH:0, drawing:'', drawingW:0, drawingH:0, cz:null }; }
 function noteHasVisual(o){ return !!(o && ((o.strokes && o.strokes.length) || (o.att && o.att.length) || o.drawing)); }
 function noteDraftFrom(n){
   return {
     strokes: (n.strokes||[]).slice(),
     att: (n.att||[]).map(attCopy),
     freeH: n.freeH||0,
-    drawing: n.drawing||'', drawingW: n.drawingW||0, drawingH: n.drawingH||0
+    drawing: n.drawing||'', drawingW: n.drawingW||0, drawingH: n.drawingH||0,
+    cz: n.cz ? { text: n.cz.text||'', bl: (n.cz.bl||[]).slice() } : null
   };
 }
 function noteVisualFields(d){
-  return {
+  const o = {
     strokes: d.strokes.slice(), att: d.att.map(attCopy), freeH: d.freeH||0,
     drawing: d.drawing||'', drawingW: d.drawingW||0, drawingH: d.drawingH||0
   };
+  if(d.cz) o.cz = { text: d.cz.text||'', bl: (d.cz.bl||[]).slice() };
+  return o;
 }
 
 /* 첨부 이미지는 용량이 커서 localStorage 대신 IndexedDB에 저장 */
@@ -2044,7 +2091,8 @@ function closeNoteEditor(){
   neEl('n-content').value = neEl('ne-text').value;
   noteDraft = {
     strokes: NE.strokes.slice(), att: NE.att.map(attCopy), freeH: +NE.freeH.toFixed(4),
-    drawing: NE.base ? NE.base.url : '', drawingW: NE.base ? NE.base.w : 0, drawingH: NE.base ? NE.base.h : 0
+    drawing: NE.base ? NE.base.url : '', drawingW: NE.base ? NE.base.w : 0, drawingH: NE.base ? NE.base.h : 0,
+    cz: noteDraft.cz || null
   };
   refreshNoteContentBox();
   neEl('note-editor').style.display = 'none';
@@ -2393,7 +2441,7 @@ function mmSyncBar(){
   neEl('mm-blank').disabled = !node;
   neEl('mm-blank').textContent = node && node.bl ? '빈칸 해제' : '빈칸 지정';
   neEl('mm-blank').classList.toggle('on', !!(node && node.bl));
-  { const bn = mmBlankCount(MM.tree); neEl('mm-studyopen').disabled = !bn; neEl('mm-blank-count').textContent = bn ? `빈칸 ${bn}개` : ''; }
+  { const bn = mmBlankCount(MM.tree); neEl('mm-blank-count').textContent = bn ? `빈칸 ${bn}개` : ''; }
   neEl('mm-join').textContent = MM.joinTo ? '합치기 취소' : '🔗 합치기';
   neEl('mm-join').classList.toggle('on', !!MM.joinTo);
   ['mm-wdn','mm-wup','mm-hdn','mm-hup','mm-size0','mm-bold','mm-nl'].forEach(id=>{ neEl(id).disabled = !node; });
@@ -2438,7 +2486,7 @@ const MS = { list:[], idx:0, hide:new Set(), layout:null, tree:null, title:'', c
 function mmWrapHidden(t){ return t.hidden ? t : { id:'sr0', t:'', hidden:true, ch:[t] }; }
 function mmStudyOpen(trees, title, cat){
   const list = trees.map(t=>{ const c = mmClone(mmWrapHidden(t)); (function w(x){ delete x.col; (x.ch||[]).forEach(w); })(c); return c; }).filter(mmHasBlank);
-  if(!list.length){ showToast('먼저 가릴 칸을 "빈칸 지정"으로 정해주세요'); return; }
+  if(!list.length){ showToast('가릴 칸이 아직 없어요. 칸을 누른 뒤 "빈칸 지정"을 눌러 먼저 정해주세요'); return; }
   MS.list = list; MS.idx = 0; MS.title = title || '마인드맵'; MS.cat = cat || MS.title;
   document.getElementById('mm-study').style.display = 'flex';
   neEl('ms2-title').textContent = '빈칸 학습';
@@ -2920,6 +2968,7 @@ function renderNotesListView(){
           <span class="note-item-title">${escapeHtml(n.title)}</span>
           <div class="row-actions">
             ${(n.att||[]).some(a=>a.mm && mmHasBlank(a.mm)) ? `<button class="note-study-btn" data-id="${n.id}">빈칸 학습</button>` : ''}
+            ${(n.cz && (n.cz.bl||[]).length) ? `<button class="note-czstudy-btn" data-id="${n.id}">글 빈칸 학습</button>` : ''}
             <button class="note-edit-btn" data-id="${n.id}">수정</button>
             <button class="note-del-btn" data-id="${n.id}">삭제</button>
           </div>
@@ -2949,6 +2998,13 @@ function renderNotesListView(){
       e.stopPropagation();
       const n = data.notes.find(x=>x.id===b.dataset.id); if(!n) return;
       mmStudyOpen((n.att||[]).filter(a=>a.mm).map(a=>a.mm), n.title, n.title);
+    });
+  });
+  container.querySelectorAll('.note-czstudy-btn').forEach(b=>{
+    b.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const n = data.notes.find(x=>x.id===b.dataset.id); if(!n || !n.cz) return;
+      czOpen({ text:n.cz.text, bl:n.cz.bl, title:n.title, mode:'study' });
     });
   });
   container.querySelectorAll('.note-del-btn').forEach(b=>{
@@ -3849,6 +3905,177 @@ async function runNoteScan(){
     btn.disabled = false;
   }
 }
+
+/* ---------- 글(텍스트·PDF·사진) 빈칸 학습 ---------- */
+const CZ = { mode:'text', text:'', bl:new Set(), hide:new Set(), title:'', onSave:null, dirtyText:false };
+const CZ_SPLIT = /([^\s.,;:!?()\[\]{}"'“”‘’<>~…·。、]+)/;
+const CZ_JOSA = /^([가-힣A-Za-z0-9]{2,}?)(으로서|으로써|에서는|에서도|에서|에게|까지|부터|처럼|보다|으로|이며|이고|이다|은|는|이|가|을|를|의|에|로|와|과|도|만)$/;
+function czToks(text){   // 짝수=구분자, 홀수=낱말 (한글 낱말 끝의 조사는 떼어서 빈칸에 안 들어가게 함)
+  const t = String(text||'').split(CZ_SPLIT);
+  for(let i=1;i<t.length;i+=2){
+    const m = /[가-힣]$/.test(t[i]) && t[i].match(CZ_JOSA);
+    if(m && i+1<t.length){ t[i] = m[1]; t[i+1] = m[2] + t[i+1]; }
+  }
+  return t;
+}
+const CZ_STOP = new Set(['the','and','that','this','with','from','have','has','had','will','would','are','was','were','been','for','not','but','can','may','its','their','there','which','when','what','who','into','also','than','then','they','them','you','your','our','his','her','she','him','all','any','one','two','is','in','on','at','to','of','or','as','by','it','be','an','a','그리고','하지만','그러나','그래서','또한','있다','있는','있으며','한다','하는','하여','되는','된다','이다','입니다','합니다','대한','통해','위해','때문']);
+function czAutoPick(text){
+  const toks = czToks(text), words = [], el = [];
+  toks.forEach((t,i)=>{ if(i%2===1 && t){ words.push(i); const lo = t.toLowerCase(); if((/\d/.test(t) || t.length>=3 || /[A-Za-z]{2,}/.test(t)) && !CZ_STOP.has(lo) && t.length>=2) el.push(i); } });
+  const want = Math.max(1, Math.round(words.length*0.2)), out = new Set();
+  if(!el.length) return out;
+  const step = el.length/Math.min(want, el.length);
+  for(let k=0;k<Math.min(want, el.length);k++) out.add(el[Math.floor(k*step)]);
+  return out;
+}
+function czSetMode(m){
+  CZ.mode = m;
+  const tabs = document.getElementById('cz-tabs').querySelectorAll('.ne-tool');
+  tabs.forEach(b=>b.classList.toggle('active', b.dataset.m===m));
+  document.getElementById('cz-p-text').style.display = m==='text' ? '' : 'none';
+  document.getElementById('cz-p-view').style.display = m==='text' ? 'none' : '';
+  ['text','pick','study'].forEach(x=>{ document.getElementById('cz-r-'+x).style.display = x===m ? '' : 'none'; });
+  if(m!=='text') czRender();
+  else document.getElementById('cz-info').textContent = '글을 붙여넣거나 입력하세요. PDF·사진에서 가져올 수도 있어요. 다 되면 "빈칸 고르기"로 넘어가세요.';
+}
+function czCommitText(){
+  const v = document.getElementById('cz-text').value;
+  if(v!==CZ.text){ CZ.text = v; CZ.bl = new Set(); CZ.hide = new Set(); }
+}
+function czRender(){
+  const view = document.getElementById('cz-view');
+  const toks = czToks(CZ.text);
+  view.className = CZ.mode==='pick' ? 'pick' : '';
+  view.innerHTML = toks.map((t,i)=>{
+    if(i%2===0) return escapeHtml(t);
+    if(!t) return '';
+    if(CZ.mode==='pick') return `<span class="w${CZ.bl.has(i)?' bl':''}" data-i="${i}">${escapeHtml(t)}</span>`;
+    if(CZ.bl.has(i)) return `<span class="w ${CZ.hide.has(i)?'hid':'rev'}" data-i="${i}">${escapeHtml(t)}</span>`;
+    return escapeHtml(t);
+  }).join('');
+  const n = CZ.bl.size;
+  document.getElementById('cz-info').textContent = CZ.mode==='pick'
+    ? `가릴 낱말을 눌러서 노란색으로 표시하세요. (빈칸 ${n}개) "자동 추천"으로 먼저 고른 뒤 고치면 빨라요.`
+    : (n ? `가려진 칸 ${CZ.hide.size} / 빈칸 ${n}개 — 회색 칸을 눌러 답을 확인하세요. 다시 누르면 가려져요.` : '아직 빈칸이 없어요. "② 빈칸 고르기"에서 가릴 낱말을 정해주세요.');
+}
+function czOpen(o){
+  CZ.text = o.text || ''; CZ.bl = new Set(o.bl||[]); CZ.hide = new Set(CZ.bl);
+  CZ.title = o.title || '글 빈칸'; CZ.onSave = o.onSave || null;
+  document.getElementById('cz-text').value = CZ.text;
+  document.getElementById('cz-info1').textContent = '';
+  document.getElementById('cz-title').textContent = o.mode==='study' ? '글 빈칸 학습' : '글 빈칸 만들기';
+  document.getElementById('cz-save').style.display = CZ.onSave ? '' : 'none';
+  document.getElementById('cz').style.display = 'flex';
+  const m = o.mode || (CZ.text.trim() ? 'pick' : 'text');
+  if(m==='study' && !CZ.bl.size){ czSetMode('pick'); showToast('가릴 낱말을 먼저 골라주세요'); return; }
+  czSetMode(m);
+}
+function czSentenceQ(toks, idx){
+  // 빈칸이 들어 있는 문장을 잘라서, 그 낱말만 ____ 로 바꿈
+  let before = '', after = '';
+  for(let k=idx-1;k>=0;k--){ const t = toks[k]; const cut = k%2===0 ? t.search(/[.!?。\n][^.!?。\n]*$/) : -1; if(cut>=0){ before = t.slice(cut+1) + before; break; } before = t + before; }
+  for(let k=idx+1;k<toks.length;k++){ const t = toks[k]; const cut = k%2===0 ? t.search(/[.!?。\n]/) : -1; if(cut>=0){ after += t.slice(0,cut+1); break; } after += t; }
+  return (before.replace(/^\s+/,'') + '____' + after).replace(/\s*\n\s*/g,' ').replace(/\s{2,}/g,' ').trim().slice(0,240);
+}
+function czSend(){
+  const toks = czToks(CZ.text), out = [];
+  Array.from(CZ.bl).sort((a,b)=>a-b).forEach(i=>{ if(toks[i]) out.push({ q: czSentenceQ(toks, i), a: toks[i] }); });
+  if(!out.length){ showToast('보낼 빈칸이 없어요'); return; }
+  const cat = CZ.title;
+  showConfirmModal(`빈칸 ${out.length}개를 '${cat}' 분류의 암기 항목(빈칸 퀴즈)으로 보낼까요? 오늘의 복습에 나오고, 이미 있는 항목은 건너뛰어요.`, async ()=>{
+    const have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
+    let add = 0;
+    out.forEach((o,k)=>{
+      if(have.has(cat+'||'+o.q)) return; have.add(cat+'||'+o.q);
+      data.questions.push({ id:'m_'+Date.now()+'_'+k+'_'+Math.floor(Math.random()*10000), type:'memo', part:cat, question:o.q, choices:null, answer:o.a, explanation:`글 빈칸 퀴즈 · ${cat}`,
+        box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr() });
+      add++;
+    });
+    await saveData(); try{ renderStatStrip(); }catch(_){}
+    showToast(add ? `암기 항목 ${add}개를 추가했어요` : '이미 모두 추가돼 있어요');
+  }, null, '보내기', '취소');
+}
+async function czOcr(blobs){
+  const prompt = `이 이미지는 학습 자료(교재, 필기, 프린트)의 글입니다. 이미지에 있는 글을 읽는 순서대로 빠짐없이 옮겨 적으세요. 아래 JSON 형식으로만 답하세요. 코드블록이나 다른 설명 없이 순수 JSON만 출력하세요.
+
+{"text":"옮겨 적은 글 (줄바꿈은 \\n)"}
+
+- 표나 그림 설명은 넣지 말고 글자만 옮기세요. 페이지 번호나 머리글·바닥글은 빼세요.`;
+  const parts = [];
+  for(let i=0;i<blobs.length;i++){
+    document.getElementById('cz-info1').textContent = blobs.length>1 ? `${i+1}/${blobs.length}장 읽는 중…` : '읽는 중…';
+    try{ const r = await scanOne(blobs[i], prompt, 3000); if(r && r.text) parts.push(String(r.text)); }
+    catch(e){ document.getElementById('cz-info1').textContent = '읽기 실패: '+scanErrText(e); }
+  }
+  return parts.join('\n\n');
+}
+function czAppend(text){
+  const ta = document.getElementById('cz-text');
+  ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/,'')+'\n\n' : '') + text.trim();
+  czCommitText();
+}
+async function czImportPdf(file){
+  const info = document.getElementById('cz-info1');
+  info.textContent = 'PDF에서 글을 가져오는 중…';
+  try{
+    const lib = await loadPdfJs();
+    const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const n = Math.min(pdf.numPages, 30); let txt = '';
+    for(let i=1;i<=n;i++){
+      const pg = await pdf.getPage(i), tc = await pg.getTextContent();
+      txt += tc.items.map(it=>it.str + (it.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+\n/g,'\n').replace(/[ \t]{2,}/g,' ') + '\n\n';
+    }
+    txt = txt.replace(/\n{3,}/g,'\n\n').trim();
+    if(pdf.numPages>n) showToast(`PDF는 앞 ${n}쪽까지만 가져왔어요`);
+    if(txt.length >= 40){ czAppend(txt); info.textContent = `PDF에서 ${txt.length}자를 가져왔어요. 내용을 확인하고 고쳐주세요.`; return; }
+    info.textContent = '이 PDF에는 글자 정보가 없어요 (스캔본). AI로 읽을 수 있어요.';
+    showConfirmModal('글자 정보가 없는 스캔 PDF예요. AI로 앞 5쪽을 읽어서 글로 바꿀까요? (한 쪽마다 스캔 요금이 나가요)', async ()=>{
+      try{
+        const pages = (await neRenderPdf(file)).slice(0,5).map(p=>p.blob);
+        const t = await czOcr(pages);
+        if(t.trim()){ czAppend(t); info.textContent = 'AI로 읽었어요. 틀린 글자가 없는지 확인하고 고쳐주세요.'; } else info.textContent = '글을 읽지 못했어요.';
+      }catch(e){ info.textContent = '읽기 실패: '+scanErrText(e); }
+    }, null, '읽기', '취소');
+  }catch(e){ console.error(e); info.textContent = 'PDF를 읽지 못했어요. 인터넷 연결을 확인하고 다시 시도하세요.'; }
+}
+(function(){
+  const $ = id=>document.getElementById(id);
+  $('cz-tabs').addEventListener('click', e=>{ const b = e.target.closest('.ne-tool'); if(!b) return; czCommitText(); czSetMode(b.dataset.m); });
+  $('cz-to-pick').addEventListener('click', ()=>{ czCommitText(); if(!CZ.text.trim()){ showToast('먼저 글을 입력하세요'); return; } czSetMode('pick'); });
+  $('cz-to-study').addEventListener('click', ()=>{ if(!CZ.bl.size){ showToast('가릴 낱말을 먼저 눌러 골라주세요'); return; } CZ.hide = new Set(CZ.bl); czSetMode('study'); });
+  $('cz-auto').addEventListener('click', ()=>{ CZ.bl = czAutoPick(CZ.text); CZ.hide = new Set(CZ.bl); czRender(); });
+  $('cz-clear').addEventListener('click', ()=>{ CZ.bl = new Set(); CZ.hide = new Set(); czRender(); });
+  $('cz-hide').addEventListener('click', ()=>{ CZ.hide = new Set(CZ.bl); czRender(); });
+  $('cz-show').addEventListener('click', ()=>{ CZ.hide = new Set(); czRender(); });
+  $('cz-memo').addEventListener('click', czSend);
+  $('cz-view').addEventListener('click', e=>{
+    const sp = e.target.closest('.w'); if(!sp) return; const i = +sp.dataset.i;
+    if(CZ.mode==='pick'){ if(CZ.bl.has(i)) CZ.bl.delete(i); else CZ.bl.add(i); CZ.hide = new Set(CZ.bl); czRender(); }
+    else if(CZ.mode==='study' && CZ.bl.has(i)){ if(CZ.hide.has(i)) CZ.hide.delete(i); else CZ.hide.add(i); czRender(); }
+  });
+  $('cz-close').addEventListener('click', ()=>{ $('cz').style.display = 'none'; });
+  $('cz-save').addEventListener('click', ()=>{ czCommitText(); if(CZ.onSave) CZ.onSave(CZ.text, Array.from(CZ.bl)); $('cz').style.display = 'none'; });
+  $('cz-pdf').addEventListener('click', ()=>$('cz-pdf-in').click());
+  $('cz-pdf-in').addEventListener('change', e=>{ const f = e.target.files[0]; e.target.value=''; if(f) czImportPdf(f); });
+  $('cz-img').addEventListener('click', ()=>$('cz-img-in').click());
+  $('cz-img-in').addEventListener('change', async e=>{
+    const files = Array.from(e.target.files||[]).slice(0,10); e.target.value=''; if(!files.length) return;
+    const t = await czOcr(files);
+    if(t.trim()){ czAppend(t); $('cz-info1').textContent = '사진에서 글을 읽었어요. 틀린 글자가 없는지 확인하고 고쳐주세요.'; }
+  });
+  // 노트 편집기에서 열기
+  $('ne-cz-btn').addEventListener('click', ()=>{
+    const cur = $('ne-text').value, cz = noteDraft.cz;
+    let text = cur, bl = [];
+    if(cz && (cz.text===cur || !cur.trim())){ text = cz.text; bl = cz.bl; }
+    const title = ($('n-title').value||'').trim() || '글 빈칸';
+    czOpen({ text, bl, title, mode: text.trim() ? 'pick' : 'text', onSave:(t, b)=>{
+      noteDraft.cz = b.length ? { text:t, bl:b } : null;
+      if($('ne-text').value!==t){ $('ne-text').value = t; $('ne-text').dispatchEvent(new Event('input')); }
+      showToast(b.length ? `빈칸 ${b.length}개를 저장했어요. 노트를 저장하면 "글 빈칸 학습"이 생겨요` : '글을 노트에 넣었어요');
+    }});
+  });
+})();
 
 /* ---------- 마인드맵 스캔: 사진 → 마인드맵(중요 칸은 빈칸으로 미리 지정) ---------- */
 document.getElementById('scan-run-btn').addEventListener('click', ()=>{}, false);
