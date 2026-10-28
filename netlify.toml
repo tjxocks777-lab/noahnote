@@ -6,8 +6,3 @@
   from = "/api/scan"
   to = "/.netlify/functions/scan"
   status = 200
-
-[[redirects]]
-  from = "/share-target"
-  to = "/?share=0"
-  status = 303
