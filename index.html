@@ -996,7 +996,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-G</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261030-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -6026,7 +6026,7 @@ document.addEventListener('keydown', (e)=>{
 
   // 카테고리 선택칸에 포커스가 남아 있으면 방향키가 카테고리를 바꿔버리므로 막고 포커스를 뺌
   const tag = (e.target && e.target.tagName) || '';
-  if(tag === 'SELECT' && (e.key==='ArrowLeft' || e.key==='ArrowRight' || e.key==='Enter')){
+  if(tag === 'SELECT' && (e.key==='ArrowLeft' || e.key==='ArrowRight' || e.key==='ArrowUp' || e.key==='Enter')){
     e.preventDefault();
     e.target.blur();
   }
@@ -6048,6 +6048,12 @@ document.addEventListener('keydown', (e)=>{
   if(e.key === 'ArrowRight'){
     const wrongBtn = document.getElementById('self-wrong');
     if(wrongBtn && !wrongBtn.disabled){ wrongBtn.click(); }
+    return;
+  }
+  if(e.key === 'ArrowUp'){
+    // 위쪽 방향키 = 헷갈렸어요 (평가 버튼이 떠 있을 때만. 그때는 화면이 위로 스크롤되지 않게 막음)
+    const hardBtn = document.getElementById('self-hard');
+    if(hardBtn){ e.preventDefault(); if(!hardBtn.disabled) hardBtn.click(); }
     return;
   }
 });
