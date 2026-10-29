@@ -1,0 +1,19 @@
+# 복습 알림: 한 시간에 한 번 서버의 /api/push-run 을 불러 알림 시각이 된 사람에게 알림을 보낸다.
+# (Cloudflare Pages 에는 예약 실행이 없어서 GitHub Actions 가 대신 불러 준다.)
+# 주소를 바꾸려면 저장소 Settings → Variables → Actions 에 PUSH_RUN_URL 을 넣으면 된다.
+name: push-cron
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/push-run
+        env:
+          URL: ${{ vars.PUSH_RUN_URL || 'https://noahnote.pages.dev/api/push-run' }}
+          TOKEN: ${{ secrets.CRON_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then URL="${URL}?token=${TOKEN}"; fi
+          curl -fsS --retry 3 --max-time 60 "$URL"
