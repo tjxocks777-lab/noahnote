@@ -996,7 +996,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-C</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-D</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1089,6 +1089,11 @@
       <button id="mm-down">▼</button>
       <button id="mm-fold">접기</button>
       <button id="mm-del" class="danger">삭제</button>
+    </div>
+    <div class="mm-row">
+      <span class="ne-label">배치</span>
+      <button id="mm-lay-auto" data-l="">자동</button><button id="mm-lay-h" data-l="h">가로형</button><button id="mm-lay-v" data-l="v">세로형 (크게)</button>
+      <span id="mm-lay-now" style="font-size:12px;color:var(--ink-soft);"></span>
     </div>
     <div class="mm-row">
       <span class="ne-label">칸 크기</span>
@@ -2518,9 +2523,14 @@ function mmLayoutV(ctx){
   const H = Math.max(...nodes.map(o=>o.y+o.h)) + 16;
   return { mode:'v', root: roots[0], roots, nodes, links, W: WV, H };
 }
+/* 배치: lay='v' 세로형, lay='h' 가로형, 없으면 자동 — 가로형이 이 폭(px)보다 넓어지면 노트에서 작게 줄어들므로 세로형으로 바꿔 크게 보이게 함 */
+const MM_AUTO_W = 520;
 function mmLayout(ctx){
-  // 스캔으로 만든 마인드맵(lay:'v')만 세로 들여쓰기형 — 직접 만든 마인드맵은 기존 가로 배치 그대로
-  return MM.tree && MM.tree.lay==='v' ? mmLayoutV(ctx) : mmLayoutH(ctx);
+  const lay = MM.tree && MM.tree.lay;
+  if(lay==='v') return mmLayoutV(ctx);
+  const h = mmLayoutH(ctx);
+  if(lay==='h' || h.W <= MM_AUTO_W) return h;
+  return mmLayoutV(ctx);
 }
 function mmRR(ctx, x, y, w, h, r){
   ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
@@ -2604,6 +2614,10 @@ function mmRender0(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
   mmDraw(ctx, L, MM.sel);
+  if(!MM.tree.lay){
+    if(MM.lastMode==='h' && L.mode==='v') showToast('가로가 넓어져서 세로형으로 보여줘요 (아래 "배치"에서 바꿀 수 있어요)');
+    MM.lastMode = L.mode;
+  }
   mmSyncBar();
 }
 function mmSyncBar(){
@@ -2636,6 +2650,9 @@ function mmSyncBar(){
   neEl('mm-fold').disabled = !node || !node.ch.length;
   neEl('mm-fold').textContent = node && node.col ? '펼치기' : '접기';
   neEl('mm-undo').disabled = !MM.undo.length;
+  { const cur = MM.tree.lay || '';
+    ['mm-lay-auto','mm-lay-h','mm-lay-v'].forEach(id=>neEl(id).classList.toggle('on', (neEl(id).dataset.l||'')===cur));
+    neEl('mm-lay-now').textContent = !cur && MM.layout ? (MM.layout.mode==='v' ? '지금: 세로형' : '지금: 가로형') : ''; }
   neEl('mm-fills').querySelectorAll('.mm-sw').forEach(b=>b.classList.toggle('active', (b.dataset.c||'')===(node && node.f || '')));
   neEl('mm-fills').style.opacity = node ? '' : '.4';
   neEl('mm-fillsub').classList.toggle('on', !!MM.fillSub);
@@ -2644,7 +2661,7 @@ function mmSyncBar(){
   neEl('mm-colors').style.display = node && !isRoot ? 'flex' : 'none';
 }
 function mmOpen(attId){
-  MM.editId = attId || null; MM.undo = []; MM.joinTo = null; MM.blankMode = false;
+  MM.editId = attId || null; MM.undo = []; MM.joinTo = null; MM.blankMode = false; MM.lastMode = null;
   const a = attId && NE.att.find(x=>x.id===attId);
   const base = a && a.mm ? mmClone(a.mm) : mmNew('');
   MM.tree = base.hidden ? base : { id:'sr'+Date.now().toString(36), t:'', hidden:true, ch:[base] };
@@ -2804,6 +2821,12 @@ async function mmFinish(){
   sw.querySelectorAll('.mm-sw').forEach(b=>b.addEventListener('click', ()=>{
     const f = MM.sel && mmFind(MM.tree, MM.sel); if(!f || !f.parent) return;
     mmPush(); if(b.dataset.c) f.node.c = b.dataset.c; else delete f.node.c; mmRender();
+  }));
+  ['mm-lay-auto','mm-lay-h','mm-lay-v'].forEach(id=>neEl(id).addEventListener('click', ()=>{
+    const l = neEl(id).dataset.l || '';
+    if((MM.tree.lay||'')===l) return;
+    mmPush(); if(l) MM.tree.lay = l; else delete MM.tree.lay; MM.lastMode = null; mmRender();
+    const sc = neEl('mm-scroll'); sc.scrollLeft = 0;
   }));
   // 칸 색 (칸 안쪽 배경색). '하위 칸도'를 켜면 선택한 칸 아래 모든 칸에 한꺼번에 적용
   const fl = neEl('mm-fills');
