@@ -996,7 +996,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-D</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-E</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -5959,7 +5959,7 @@ function selectSubject(name){
   renderSettingsPanel();
   populateCategoryOptions();
   setInputType('quiz');
-  saveData();
+  persistBlobRaw();   // 과목을 고른 것만으로는 동기화 대상 변경이 아니므로 이 기기에만 저장
   try{ prefsUi(); }catch(e){}
   setTimeout(()=>{ try{ sharedIntake(); linkIntake(); }catch(e){ console.error(e); } }, 300);
 }
@@ -6112,6 +6112,7 @@ function afterRestore(){
   showToast(ok ? '복구했어요. 과목을 선택하세요' : '복구는 됐지만 이 화면에선 저장이 안 돼요. 사파리로 열어 다시 복구해주세요');
 }
 /* ---------- 기기 간 자동 동기화 (Netlify Blobs) ---------- */
+const SYNC_SIG_KEY='noah-note-sync-sig';
 const SYNC_PASS_KEY='noah-note-sync-pass', SYNC_BASE_KEY='noah-note-sync-base', SYNC_DIRTY_KEY='noah-note-sync-dirty', SYNC_ATT_KEY='noah-note-sync-atts', SYNC_META='noah-note-sync-last';
 const syncPassEl = document.getElementById('sync-pass');
 const lsGet = k=>{ try{ return localStorage.getItem(k); }catch(_){ return null; } };
@@ -6134,6 +6135,47 @@ function syncMarkDirty(){
   lsSet(SYNC_DIRTY_KEY,'1');
   clearTimeout(syncTimer);
   syncTimer = setTimeout(()=>syncRun(), 5000);
+}
+/* 내용이 실제로 바뀌었는지 판별하는 지문 (마지막으로 서버와 맞춘 내용과 같으면 올리지 않음) */
+function syncSig(){
+  const s = JSON.stringify(allSubjects||{}); let h1 = 0xdeadbeef ^ s.length, h2 = 0x41c6ce57 ^ s.length;
+  for(let i=0;i<s.length;i++){ const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(36) + ':' + s.length;
+}
+/* 노트·마인드맵 편집 중이거나 학습 화면이 떠 있으면 가져온 내용으로 바꾸지 않고 잠시 미룸 */
+function syncUiBusy(){
+  return ['note-editor','mm-editor','mm-study','cz','aipanel'].some(id=>{ const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none'; });
+}
+let syncRetryTimer = null;
+/* 가져온 내용을 지금 보고 있는 과목·탭 화면에 그대로 반영 (과목 선택 화면으로 돌려보내지 않음) */
+function syncRefreshInPlace(prev, keepId){
+  if(!prev || !allSubjects[prev]){
+    try{ renderSubjectList(); }catch(_){}
+    return;
+  }
+  currentSubject = prev; data = allSubjects[prev];
+  data.questions = data.questions || []; data.drafts = data.drafts || []; data.notes = data.notes || [];
+  data.settings = Object.assign({wrongDays:1, correctDays:3, dailyLimit:15, masteredLimit:5}, data.settings || {});
+  migrateIntervals(data);
+  lastSubject = prev;
+  try{ document.getElementById('current-subject-label').textContent = prev; }catch(_){}
+  startSession();
+  if(keepId){ const i = session.queue.findIndex(q=>q.id===keepId); if(i>0){ session.index = i; renderReview(); } }
+  try{ renderGoalChip(); }catch(_){}
+  try{ renderCatSummary(); }catch(_){}
+  try{ populateCategoryOptions(); }catch(_){}
+  try{ renderSettingsPanel(); }catch(_){}
+  try{ prefsUi(); }catch(_){}
+  try{
+    const tab = document.querySelector('.tab-btn.active') && document.querySelector('.tab-btn.active').dataset.tab;
+    if(tab==='scaninput') renderNotes();
+    if(tab==='memo'){
+      const av = document.querySelector('.list-toggle-btn.active'), view = av ? av.dataset.listview : 'memo';
+      if(view==='note') renderNotesListView(); else if(view==='favorite') renderFavoritesList(); else if(view==='wrong') renderWrongArchive(); else renderMemoList();
+    }
+  }catch(_){}
 }
 function syncHasContent(){ return Object.values(allSubjects||{}).some(x=>((x.questions||[]).length+(x.notes||[]).length+(x.drafts||[]).length)>0); }
 async function syncMeta(k){
@@ -6194,10 +6236,11 @@ async function syncPush(k){
   if(body.length > 5600000) throw new Error('too large');
   const r = await fetch('/api/sync?k='+k, {method:'PUT', headers:{'Content-Type':'application/json'}, body});
   if(!r.ok) throw new Error('HTTP '+r.status);
-  lsSet(SYNC_BASE_KEY, stamp); lsSet(SYNC_DIRTY_KEY, null);
+  lsSet(SYNC_BASE_KEY, stamp); lsSet(SYNC_DIRTY_KEY, null); lsSet(SYNC_SIG_KEY, syncSig());
   syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
 }
 async function syncPull(k, quiet){
+  const prevSubject = currentSubject, keepId = (session.queue[session.index] || {}).id;
   const r = await fetch('/api/sync?k='+k,{cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
   const obj = await r.json();
@@ -6212,8 +6255,14 @@ async function syncPull(k, quiet){
   } finally { syncApplying = false; }
   lsSet(SYNC_DIRTY_KEY, null);
   syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
-  afterRestore();
-  if(quiet) showToast('다른 기기의 최신 내용을 가져왔어요');
+  if(quiet){
+    syncRefreshInPlace(prevSubject, keepId);
+    lsSet(SYNC_SIG_KEY, syncSig());
+    showToast('다른 기기의 최신 내용을 가져왔어요');
+  } else {
+    afterRestore();
+    lsSet(SYNC_SIG_KEY, syncSig());
+  }
 }
 function syncConflict(k){
   return new Promise(res=>{
@@ -6232,11 +6281,15 @@ async function syncRun(manual){
     if(currentSubject) allSubjects[currentSubject] = data;
     const k = await syncKey();
     const meta = await syncMeta(k);
-    const base = lsGet(SYNC_BASE_KEY), dirty = lsGet(SYNC_DIRTY_KEY)==='1';
+    const base = lsGet(SYNC_BASE_KEY);
+    let dirty = lsGet(SYNC_DIRTY_KEY)==='1';
+    if(dirty && syncSig()===lsGet(SYNC_SIG_KEY)){ dirty = false; lsSet(SYNC_DIRTY_KEY, null); }   // 실제로 바뀐 게 없으면 변경 없음으로 처리
     if(!meta){
       if(syncHasContent()) await syncPush(k); else syncStatus('서버가 비어 있어요');
     }else if(base && meta.savedAt===base){
       if(dirty) await syncPush(k); else if(manual){ syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR')); showToast('이미 최신이에요'); }
+    }else if(syncUiBusy() && !manual){
+      clearTimeout(syncRetryTimer); syncRetryTimer = setTimeout(()=>syncRun(), 20000);   // 편집 중에는 화면을 바꾸지 않고 잠시 뒤 다시 확인
     }else{
       if(!dirty || !syncHasContent()) await syncPull(k, true);
       else await syncConflict(k);
