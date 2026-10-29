@@ -17,7 +17,7 @@ export async function vapid(env) {
   return v;
 }
 
-export const subjectFor = (env, origin) => env.VAPID_SUBJECT || origin || 'https://noahnote.pages.dev';
+export const subjectFor = (env, origin) => env.VAPID_SUBJECT || origin || 'https://noahnote.workers.dev';
 
 export async function sendTo(env, rec, payload, origin) {
   return sendWebPush(rec.sub, payload, await vapid(env), subjectFor(env, origin));

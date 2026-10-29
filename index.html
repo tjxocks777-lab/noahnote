@@ -708,7 +708,7 @@
 <div id="subject-picker" style="display:none;">
   <div class="picker-inner">
     <h2 class="picker-title">과목 선택</h2>
-    <div id="picker-block" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">이 화면에서는 <b>저장이 막혀 있어요.</b> 지금 입력하거나 복구해도 창을 닫으면 사라져요. 사파리(또는 크롬)에서 <b>앱 인터넷 주소(noahnote.pages.dev)</b>로 직접 열어주세요. 파일 앱·카톡·미리보기에서 열면 이렇게 돼요.</div>
+    <div id="picker-block" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">이 화면에서는 <b>저장이 막혀 있어요.</b> 지금 입력하거나 복구해도 창을 닫으면 사라져요. 사파리(또는 크롬)에서 <b>앱 인터넷 주소(workers.dev)</b>로 직접 열어주세요. 파일 앱·카톡·미리보기에서 열면 이렇게 돼요.</div>
     <div id="picker-warn" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">저장된 데이터를 읽지 못했어요. <b>새로 입력하지 말고</b> 아래 "백업 파일에서 복구"로 백업 파일을 불러와 주세요.</div>
     <div id="subject-list"></div>
     <button class="btn outline" id="picker-restore-btn" type="button" style="width:100%;margin-top:12px;">백업 파일에서 복구</button>
@@ -996,7 +996,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-F</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261029-G</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1009,7 +1009,7 @@
 
     <div class="settings-block" id="sync-block">
       <h3>기기 간 자동 동기화</h3>
-      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력해 두면 공부한 내용이 자동으로 서로 맞춰져요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(pages.dev)로 열었을 때만 동작해요.</p>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력해 두면 공부한 내용이 자동으로 서로 맞춰져요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(workers.dev)로 열었을 때만 동작해요.</p>
       <input type="password" id="sync-pass" placeholder="동기화 암호 (8자 이상)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--line,#ccd);border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;">
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;" id="sync-last"></p>
       <div class="btn-row" style="flex-wrap:wrap;gap:8px;">
@@ -4406,7 +4406,7 @@ document.getElementById('grp-open-btn').addEventListener('click', ()=>openGroup(
 function grpErr(e){ return e && e.message ? e.message : '알 수 없는 오류'; }
 async function renderGroup(prefillCode){
   const body = document.getElementById('grp-body'), g = grpGet();
-  if(!syncHostOk()){ body.innerHTML = '<div class="st-card"><div class="st-note" style="margin:0;">그룹 기능은 앱 인터넷 주소(pages.dev)로 열었을 때만 쓸 수 있어요.</div></div>'; return; }
+  if(!syncHostOk()){ body.innerHTML = '<div class="st-card"><div class="st-note" style="margin:0;">그룹 기능은 앱 인터넷 주소(workers.dev)로 열었을 때만 쓸 수 있어요.</div></div>'; return; }
   if(!g){
     body.innerHTML = `<div class="st-card"><p class="st-h">그룹에 참가하기</p><div class="st-form">
         <input type="text" id="gj-code" maxlength="6" placeholder="그룹 코드 6자리" value="${escapeAttr(prefillCode||'')}" style="text-transform:uppercase;">
@@ -5239,7 +5239,7 @@ async function renderMindmapPreview(title, tree){
 
 /* ---------- 암기 스캔: 사진에서 용어/뜻 뽑기 ---------- */
 // 스캔은 AI(Claude) 호출이 필요해요. 나중에 서버(프록시)를 붙이면 이 주소만 바꾸면 돼요.
-const SCAN_ENDPOINT = /(^|\.)(pages\.dev|netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname) ? '/api/scan' : 'https://api.anthropic.com/v1/messages';
+const SCAN_ENDPOINT = /(^|\.)(workers\.dev|pages\.dev|netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname) ? '/api/scan' : 'https://api.anthropic.com/v1/messages';
 async function runMemoScan(){
   const btn = document.getElementById('scan-run-btn');
   btn.disabled = true;
@@ -6119,7 +6119,7 @@ const lsGet = k=>{ try{ return localStorage.getItem(k); }catch(_){ return null; 
 const lsSet = (k,v)=>{ try{ if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(_){} };
 syncPassEl.value = lsGet(SYNC_PASS_KEY) || '';
 let syncBusy=false, syncApplying=false, syncTimer=null, syncKeyCache=null;
-function syncHostOk(){ return /^https?:$/.test(location.protocol) && /(^|\.)(pages\.dev|netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname); }
+function syncHostOk(){ return /^https?:$/.test(location.protocol) && /(^|\.)(workers\.dev|pages\.dev|netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname); }
 function syncEnabled(){ return !!lsGet(SYNC_PASS_KEY) && syncHostOk(); }
 function syncStatus(msg){ lsSet(SYNC_META, msg); const el=document.getElementById('sync-last'); if(el) el.textContent = msg||''; }
 syncStatus(lsGet(SYNC_META)||'');
@@ -6274,7 +6274,7 @@ function syncConflict(k){
 }
 async function syncRun(manual){
   if(syncBusy) return;
-  if(!syncEnabled()){ if(manual) showToast('암호를 입력하고 앱 인터넷 주소(pages.dev)에서 켜세요'); return; }
+  if(!syncEnabled()){ if(manual) showToast('암호를 입력하고 앱 인터넷 주소(workers.dev)에서 켜세요'); return; }
   if(!dataReady || loadFailed) return;
   syncBusy = true;
   try{
@@ -6302,7 +6302,7 @@ async function syncRun(manual){
 document.getElementById('sync-now-btn').addEventListener('click', async ()=>{
   const pw = (syncPassEl.value||'').trim();
   if(pw.length<8){ showToast('암호를 8자 이상 입력하세요'); return; }
-  if(!syncHostOk()){ showToast('동기화는 앱 인터넷 주소(pages.dev)로 열었을 때만 돼요'); return; }
+  if(!syncHostOk()){ showToast('동기화는 앱 인터넷 주소(workers.dev)로 열었을 때만 돼요'); return; }
   if(pw !== lsGet(SYNC_PASS_KEY)){ lsSet(SYNC_PASS_KEY, pw); lsSet(SYNC_BASE_KEY, null); syncKeyCache=null; }
   await syncRun(true);
 });

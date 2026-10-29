@@ -1,0 +1,12 @@
+# 앱 화면으로 내보내지 않을 파일
+worker
+functions
+legacy-netlify
+node_modules
+.github
+.git
+.wrangler
+wrangler.jsonc
+.assetsignore
+.gitignore
+*.md

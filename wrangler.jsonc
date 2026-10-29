@@ -1,0 +1,18 @@
+{
+  // NOAH NOTE — Cloudflare Workers (정적 파일 + /api + 예약 실행)
+  "name": "noahnote",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-10-01",
+  // 대시보드에서 추가한 변수/키(ANTHROPIC_API_KEY 등)를 배포할 때 지우지 않는다
+  "keep_vars": true,
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    // /api/* 만 Worker 코드가 먼저 처리하고, 나머지(앱 화면)는 Worker 를 거치지 않고 바로 내준다
+    "run_worker_first": ["/api/*"]
+  },
+  // 동기화·공유·그룹·알림 데이터 저장소. id 를 적지 않으면 배포할 때 자동으로 만들어 연결한다
+  "kv_namespaces": [{ "binding": "NOAH_KV" }],
+  // 복습 알림: 한 시간에 한 번
+  "triggers": { "crons": ["7 * * * *"] }
+}
