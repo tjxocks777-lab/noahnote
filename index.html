@@ -996,7 +996,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261030-B</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261030-C</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -3735,11 +3735,11 @@ function renderQuotaGauge(){
     const total = session.retryTotal || session.queue.length, cur = Math.min(session.index, total);
     el.innerHTML = `
       <div class="quota-top">
-        <span class="quota-title">🔁 오늘 틀린 문제 다시 풀기</span>
+        <span class="quota-title">🔁 틀린 문제 ${session.retryRound||1}라운드</span>
         <span class="quota-nums">${Math.min(cur+1,total)} / ${total}</span>
       </div>
       <div class="quota-bar"><div class="quota-fill" style="width:${total?Math.round(cur/total*100):0}%;"></div></div>
-      <div class="quota-sub">연습이라 복습 일정·기록은 바뀌지 않아요. 쉬웠어요로 맞히면 목록에서 빠져요. <button id="retry-exit" type="button" style="background:none;border:none;padding:0;margin-left:6px;color:var(--red);text-decoration:underline;font:inherit;cursor:pointer;">끝내기 ›</button></div>`;
+      <div class="quota-sub">남은 오답 ${retryTrail()}개 · 쉬웠어요로 맞히면 빠지고, 아니면 다음 라운드에 또 나와요. 연습이라 복습 일정·기록은 그대로예요. <button id="retry-exit" type="button" style="background:none;border:none;padding:0;margin-left:6px;color:var(--red);text-decoration:underline;font:inherit;cursor:pointer;">끝내기 ›</button></div>`;
     document.getElementById('retry-exit').addEventListener('click', endRetry);
     return;
   }
@@ -3910,33 +3910,44 @@ function retryBtnHtml(){
   const parts = []; if(m.wrong.length) parts.push(`몰랐어요 ${m.wrong.length}`); if(m.hard.length) parts.push(`헷갈렸어요 ${m.hard.length}`);
   return `<div style="margin-top:16px;"><button class="btn" id="retry-open-btn" type="button">🔁 오늘 틀린 문제 다시 풀기 (${parts.join(' · ')})</button></div>`;
 }
-function startRetry(){
+// 남은 오답 수의 라운드별 변화: 12 → 5 → 2 (마지막 숫자가 지금 라운드)
+function retryTrail(finalLeft){
+  const t = (session.retryTrail||[]).slice(); if(finalLeft !== undefined) t.push(finalLeft);
+  return t.map((n,i)=> i===t.length-1 ? `<b>${n}</b>` : String(n)).join(' → ');
+}
+function beginRetryRound(first){
   const m = todayMissed();
   if(!m.all.length){ showToast('오늘 틀린 문제가 없어요'); return; }
   clearTimeout(autoNextTimer);
   retryMode = true;
+  if(first || !session.retryTrail){ session.retryRound = 1; session.retryTrail = [m.all.length]; }
+  else { session.retryRound = (session.retryRound||1) + 1; session.retryTrail.push(m.all.length); }
   session.queue = reorderAvoidingRepeatAnswers(shuffleArray(m.all));
   session.index = 0; session.answered = false; session.selected = null; session.correctCount = 0;
   session.retryTotal = session.queue.length;
   renderReview(); renderStatStrip();
   try{ document.getElementById('review-area').scrollIntoView({block:'nearest'}); }catch(_){}
 }
+function startRetry(){ beginRetryRound(true); }
+function nextRetryRound(){ beginRetryRound(false); }
 function endRetry(){ retryMode = false; startSession(); }
 function renderRetryDone(area){
-  const left = todayMissed(), total = session.retryTotal || 0, ok = session.correctCount || 0;
+  const left = todayMissed().all.length, total = session.retryTotal || 0, ok = session.correctCount || 0, round = session.retryRound || 1;
+  const none = left === 0;
   area.innerHTML = `
     <div class="review-shell">
       <div class="empty">
-        <span class="display">다시 풀기 끝</span>
-        ${total}문제 중 ${ok}개를 쉬웠어요로 맞혔어요.
-        <div class="next-due" style="margin-top:10px;">${left.all.length ? `아직 몰랐거나 헷갈리는 문제가 ${left.all.length}개 남아 있어요.` : '오늘 틀린 문제를 모두 해결했어요!'}</div>
+        <span class="display">${none ? '오답 0개 달성!' : `${round}라운드 끝`}</span>
+        이번 라운드 ${total}개 중 ${ok}개를 맞혔어요.${none ? '' : ` ${left}개가 남았어요.`}
+        <div class="next-due" style="margin-top:10px;">남은 오답 ${retryTrail(left)}개${none ? ` · 총 ${round}라운드` : ''}</div>
+        ${!none && ok===0 ? '<div class="next-due">하나도 줄이지 못했어요. 정답을 한 번 더 눈에 익히고 다시 가볼까요?</div>' : ''}
         <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-          ${left.all.length ? '<button class="btn" id="retry-again" type="button">남은 것 다시 풀기</button>' : ''}
-          <button class="btn outline" id="retry-back" type="button">오늘 복습으로 돌아가기</button>
+          ${none ? '' : `<button class="btn" id="retry-again" type="button">${round+1}라운드 시작 (${left}개)</button>`}
+          <button class="btn ${none ? '' : 'outline'}" id="retry-back" type="button">오늘 복습으로 돌아가기</button>
         </div>
       </div>
     </div>`;
-  const a = document.getElementById('retry-again'); if(a) a.addEventListener('click', startRetry);
+  const a = document.getElementById('retry-again'); if(a) a.addEventListener('click', nextRetryRound);
   document.getElementById('retry-back').addEventListener('click', endRetry);
 }
 
@@ -6111,6 +6122,8 @@ document.addEventListener('keydown', (e)=>{
   }
 
   if(e.key === 'Enter'){
+    const againBtn = document.getElementById('retry-again');
+    if(againBtn){ e.preventDefault(); againBtn.click(); return; }
     const revealBtn = document.getElementById('reveal-btn');
     if(revealBtn){ e.preventDefault(); revealBtn.click(); return; }
     const nextBtn = document.getElementById('next-btn');
