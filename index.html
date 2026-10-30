@@ -996,7 +996,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261030-A</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261030-B</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1292,6 +1292,7 @@
 
 let data = { questions: [], drafts: [], notes: [], settings: { wrongDays: 1, correctDays: 3, dailyLimit: 15, masteredLimit: 5 } };
 let session = { queue: [], index: 0, answered: false, selected: null, correctCount: 0 };
+let retryMode = false;   // 오늘 틀린 문제 다시 풀기(연습) 중인지
 let editingId = null;
 let scanFiles = [];
 let scanRecognized = [];
@@ -3624,13 +3625,16 @@ function renderStatStrip(){
   const inProgress = data.questions.filter(q=>!q.mastered).length;
   const mastered = data.questions.filter(q=>q.mastered).length;
   const wrongCount = data.questions.filter(q=>!q.mastered && (q.wrongCount||0) > 0).length;
+  const missN = todayMissed().all.length;
   document.getElementById('stat-strip').innerHTML = `
     <span>복습 대상 <b>${dueToday}</b></span>
     <span>학습중 <b>${inProgress}</b></span>
     <span>숙달 <b>${mastered}</b> / ${total}</span>
     <button class="stat-link" id="stat-wrong-cell">틀린 문제 ${wrongCount} ›</button>
+    ${missN>0 ? `<button class="stat-link" id="stat-retry-cell">🔁 오늘 틀린 문제 다시 풀기 ${missN} ›</button>` : ''}
   `;
   document.getElementById('stat-wrong-cell').addEventListener('click', toggleWrongQuestions);
+  const retryCell = document.getElementById('stat-retry-cell'); if(retryCell) retryCell.addEventListener('click', startRetry);
   try{ renderBlankStudy(); }catch(e){ console.error(e); }
   try{ renderGoalChip(); }catch(e){ console.error(e); }
   try{ updateBadgeAndPing(); }catch(e){ console.error(e); }
@@ -3713,6 +3717,7 @@ function statsViewOpen(){ const v=document.getElementById('stats-view'); return 
 
 function startSession(){
   clearTimeout(autoNextTimer);
+  retryMode = false;
   renderStatStrip();
   renderCategoryFilter();
   session.queue = computeDue();
@@ -3726,6 +3731,18 @@ function startSession(){
 function renderQuotaGauge(){
   const el = document.getElementById('quota-gauge');
   if(!el) return;
+  if(retryMode){
+    const total = session.retryTotal || session.queue.length, cur = Math.min(session.index, total);
+    el.innerHTML = `
+      <div class="quota-top">
+        <span class="quota-title">🔁 오늘 틀린 문제 다시 풀기</span>
+        <span class="quota-nums">${Math.min(cur+1,total)} / ${total}</span>
+      </div>
+      <div class="quota-bar"><div class="quota-fill" style="width:${total?Math.round(cur/total*100):0}%;"></div></div>
+      <div class="quota-sub">연습이라 복습 일정·기록은 바뀌지 않아요. 쉬웠어요로 맞히면 목록에서 빠져요. <button id="retry-exit" type="button" style="background:none;border:none;padding:0;margin-left:6px;color:var(--red);text-decoration:underline;font:inherit;cursor:pointer;">끝내기 ›</button></div>`;
+    document.getElementById('retry-exit').addEventListener('click', endRetry);
+    return;
+  }
   const done = getTodayProgress().done;
   const remaining = session.queue.length===0 ? 0 : Math.max(0, session.queue.length - session.index);
   const total = done + remaining;
@@ -3751,6 +3768,7 @@ function revealPartBadge(q){
 function renderReview(){
   renderQuotaGauge();
   const area = document.getElementById('review-area');
+  if(retryMode && session.index >= session.queue.length){ renderRetryDone(area); return; }
   if(session.queue.length===0){
     const catNote = reviewCats.size===0 ? '' : `선택한 `;
     const progress = getTodayProgress();
@@ -3763,8 +3781,10 @@ function renderReview(){
             ? "'스캔·입력' 탭에서 첫 문제를 등록해보세요."
             : `${catNote}카테고리에서 오늘 복습할 항목을 모두 마쳤어요.`}
           ${progressNote}
+          ${retryBtnHtml()}
         </div>
       </div>`;
+    const rb = document.getElementById('retry-open-btn'); if(rb) rb.addEventListener('click', startRetry);
     return;
   }
   if(session.index >= session.queue.length){
@@ -3774,11 +3794,13 @@ function renderReview(){
         <div class="empty">
           <span class="display">오늘의 복습 완료</span>
           오늘 총 ${progress.done}문제 중 ${progress.correct}개를 맞혔어요.
+          ${retryBtnHtml()}
           <div style="margin-top:16px;">
             <button class="btn outline" onclick="startSession()">다시 확인하기</button>
           </div>
         </div>
       </div>`;
+    const rb = document.getElementById('retry-open-btn'); if(rb) rb.addEventListener('click', startRetry);
     return;
   }
 
@@ -3868,8 +3890,62 @@ function renderReview(){
   }
 }
 
+/* ---------- 오늘 틀린 문제 다시 풀기 (연습 모드) ----------
+   오늘 '몰랐어요'·오답(lastWrong)이나 '헷갈렸어요'(lastHard)로 평가한 문제를 모아 다시 푼다.
+   연습이라 복습 일정·오늘 기록·통계는 바꾸지 않고, '쉬웠어요'로 맞힌 문제만 목록에서 빠진다(retryOkOn). */
+function todayMissed(){
+  const t = todayStr(), next = addDays(t, (data.settings && data.settings.wrongDays) ?? 1);
+  const wrong = [], hard = [];
+  (data.questions||[]).forEach(q=>{
+    if(q.retryOkOn === t) return;
+    // 이 기능이 생기기 전에 오늘 이미 '몰랐어요'로 푼 문제는 상태로 추정: 연속 정답 0회 + 틀린 기록 + 다음 복습일이 '틀렸을 때 일정'
+    const w = q.lastWrong === t || (q.lastWrong === undefined && (q.correctCount||0)===0 && (q.wrongCount||0)>0 && q.nextReviewDate === next);
+    if(w) wrong.push(q); else if(q.lastHard === t) hard.push(q);
+  });
+  return { wrong, hard, all: wrong.concat(hard) };
+}
+function retryBtnHtml(){
+  const m = todayMissed();
+  if(!m.all.length) return '';
+  const parts = []; if(m.wrong.length) parts.push(`몰랐어요 ${m.wrong.length}`); if(m.hard.length) parts.push(`헷갈렸어요 ${m.hard.length}`);
+  return `<div style="margin-top:16px;"><button class="btn" id="retry-open-btn" type="button">🔁 오늘 틀린 문제 다시 풀기 (${parts.join(' · ')})</button></div>`;
+}
+function startRetry(){
+  const m = todayMissed();
+  if(!m.all.length){ showToast('오늘 틀린 문제가 없어요'); return; }
+  clearTimeout(autoNextTimer);
+  retryMode = true;
+  session.queue = reorderAvoidingRepeatAnswers(shuffleArray(m.all));
+  session.index = 0; session.answered = false; session.selected = null; session.correctCount = 0;
+  session.retryTotal = session.queue.length;
+  renderReview(); renderStatStrip();
+  try{ document.getElementById('review-area').scrollIntoView({block:'nearest'}); }catch(_){}
+}
+function endRetry(){ retryMode = false; startSession(); }
+function renderRetryDone(area){
+  const left = todayMissed(), total = session.retryTotal || 0, ok = session.correctCount || 0;
+  area.innerHTML = `
+    <div class="review-shell">
+      <div class="empty">
+        <span class="display">다시 풀기 끝</span>
+        ${total}문제 중 ${ok}개를 쉬웠어요로 맞혔어요.
+        <div class="next-due" style="margin-top:10px;">${left.all.length ? `아직 몰랐거나 헷갈리는 문제가 ${left.all.length}개 남아 있어요.` : '오늘 틀린 문제를 모두 해결했어요!'}</div>
+        <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          ${left.all.length ? '<button class="btn" id="retry-again" type="button">남은 것 다시 풀기</button>' : ''}
+          <button class="btn outline" id="retry-back" type="button">오늘 복습으로 돌아가기</button>
+        </div>
+      </div>
+    </div>`;
+  const a = document.getElementById('retry-again'); if(a) a.addEventListener('click', startRetry);
+  document.getElementById('retry-back').addEventListener('click', endRetry);
+}
+
 let autoNextTimer = null;
 async function finishGrading(q, isCorrect, grade){
+  if(retryMode){
+    // 연습 모드: 일정·기록은 그대로. 쉬웠어요(객관식은 정답)로 맞히면 다시 풀기 목록에서 뺀다
+    if(isCorrect){ session.correctCount++; q.retryOkOn = todayStr(); await saveData(); }
+  } else {
   const progress = getTodayProgress();
   progress.done++;
   if(isCorrect) progress.correct++;
@@ -3879,6 +3955,7 @@ async function finishGrading(q, isCorrect, grade){
     // 헷갈렸어요: 연속 정답은 그대로 두고 내일 다시 확인
     q.hardCount = (q.hardCount||0) + 1;
     q.nextReviewDate = addDays(todayStr(), 1);
+    q.lastHard = todayStr(); delete q.retryOkOn;
   } else if(isCorrect){
     session.correctCount++;
     q.correctCount = (q.correctCount||0) + 1;
@@ -3891,11 +3968,13 @@ async function finishGrading(q, isCorrect, grade){
     q.box = 0;
     q.wrongCount = (q.wrongCount||0) + 1;
     q.nextReviewDate = addDays(todayStr(), data.settings.wrongDays);
+    q.lastWrong = todayStr(); delete q.retryOkOn;
   }
   await saveData();
+  }
 
   if(q.choices){
-    const nextInfo = (q.mastered && isCorrect ? '숙달! ' : '') + `다음 복습일: ${q.nextReviewDate}`;
+    const nextInfo = retryMode ? '연습이라 복습 일정은 그대로예요' : ((q.mastered && isCorrect ? '숙달! ' : '') + `다음 복습일: ${q.nextReviewDate}`);
     const slot = document.getElementById('result-slot');
     slot.innerHTML = `
       <div class="result-box ${isCorrect?'correct':'wrong'}" style="margin-top:16px;">
