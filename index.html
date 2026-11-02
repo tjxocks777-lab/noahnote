@@ -667,7 +667,20 @@
   .mm-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;}
   #mm-canvas{display:block;touch-action:manipulation;}
   #mm-study{display:none;position:fixed;inset:0;z-index:180;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
-  #ms2-canvas{display:block;touch-action:manipulation;}
+  #ms2-scroll{touch-action:pan-x pan-y;}
+  #ms2-canvas{display:block;touch-action:pan-x pan-y;}
+  /* 노트 그림 확대 보기 */
+  .nv[data-nid]{cursor:zoom-in;}
+  .nv[data-nid]::after{content:'🔍 눌러서 확대';position:absolute;right:6px;bottom:6px;z-index:6;background:rgba(22,35,63,.8);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;pointer-events:none;}
+  #zv{display:none;position:fixed;inset:0;z-index:260;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
+  #zv .ne-heading{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .zv-btns{display:flex;gap:6px;flex:none;}
+  .zv-btns button{border:1px solid var(--line);background:var(--card);height:38px;min-width:40px;padding:0 10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--ink);}
+  #zv-scroll{flex:1;display:flex;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;background:#dfe3ea;cursor:grab;overscroll-behavior:contain;}
+  #zv-box{position:relative;flex:none;background:#fff;margin:auto;box-shadow:0 0 0 1px var(--line);user-select:none;-webkit-user-select:none;}
+  #zv-box img{position:absolute;left:0;width:100%;display:block;-webkit-user-drag:none;pointer-events:none;}
+  #zv-box canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;}
+  #zv-tip{font-size:11.5px;color:var(--ink-soft);text-align:center;padding:6px 10px calc(6px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line);}
   .mm-info{font-size:12.5px;color:var(--ink-soft);margin:0 0 8px;line-height:1.5;}
   #cz{display:none;position:fixed;inset:0;z-index:190;flex-direction:column;background:var(--paper);height:100vh;height:100dvh;}
   #cz-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;background:var(--card);padding:14px 14px 30px;}
@@ -996,7 +1009,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261030-C</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261102-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1159,11 +1172,26 @@
   <div class="mm-bar">
     <p class="mm-info" id="ms2-info"></p>
     <div class="mm-row">
+      <button id="ms2-zout" aria-label="축소">−</button>
+      <button id="ms2-zfit" title="화면에 맞추기 / 원래 크기">100%</button>
+      <button id="ms2-zin" aria-label="확대">＋</button>
+      <button id="ms2-lay" title="가로형 ↔ 세로형(폰 화면에 맞춰 크게 보임)">세로형으로</button>
       <button id="ms2-hide">모두 가리기</button>
       <button id="ms2-show">모두 보기</button>
       <button id="ms2-memo">암기 항목으로 보내기</button>
     </div>
   </div>
+</div>
+
+<!-- 노트 그림 확대 보기 -->
+<div id="zv">
+  <div class="ne-top">
+    <button class="ne-done" id="zv-close">← 닫기</button>
+    <span class="ne-heading" id="zv-title"></span>
+    <span class="zv-btns"><button id="zv-out" aria-label="축소">−</button><button id="zv-pct" title="원래 크기로">100%</button><button id="zv-in" aria-label="확대">＋</button></span>
+  </div>
+  <div id="zv-scroll"><div id="zv-box"></div></div>
+  <div id="zv-tip">두 손가락으로 벌리거나 두 번 탭해서 확대 · 끌어서 이동 (컴퓨터: Ctrl+휠, 끌기)</div>
 </div>
 
 <!-- 글(텍스트·PDF) 빈칸 만들기 / 빈칸 학습 -->
@@ -2175,7 +2203,7 @@ function neBuildAtt(){
       d.appendChild(eb);
       if(mmHasBlank(a.mm)){
         const sb = document.createElement('button'); sb.className = 'ne-att-edit'; sb.style.right = '88px'; sb.textContent = '📝 빈칸 학습';
-        sb.addEventListener('click', ()=>{ const r0 = (a.mm.hidden ? a.mm.ch[0] : a.mm); const t = (r0 && r0.t || '').trim() || '마인드맵'; mmStudyOpen([a.mm], t, '마인드맵 · '+t); });
+        sb.addEventListener('click', ()=>{ const r0 = (a.mm.hidden ? a.mm.ch[0] : a.mm); const t = (r0 && r0.t || '').trim() || '마인드맵'; mmStudyOpen([{ tree:a.mm, ar:a.ar }], t, '마인드맵 · '+t); });
         d.appendChild(sb);
       }
     }
@@ -2689,10 +2717,29 @@ function mmLayoutOf(tree){
   const keep = MM.tree; MM.tree = tree;
   try{ return mmLayout(document.createElement('canvas').getContext('2d')); } finally { MM.tree = keep; }
 }
-const MS = { list:[], idx:0, hide:new Set(), layout:null, tree:null, title:'', cat:'' };
+const MS = { list:[], idx:0, hide:new Set(), layout:null, tree:null, title:'', cat:'', zoom:1 };
 function mmWrapHidden(t){ return t.hidden ? t : { id:'sr0', t:'', hidden:true, ch:[t] }; }
+/* 노트에 보이는 그림과 같은 배치(가로형/세로형)를 고름: 저장된 그림의 가로세로 비율(ar)에 더 가까운 쪽.
+   배치가 따로 지정돼 있으면 그대로 둠. (예전에 가로형으로 저장된 그림이 학습 화면에서 세로형으로 바뀌어 모양이 달라지던 문제) */
+function mmPickLay(tree, ar){
+  if(tree.lay || !(ar > 0)) return tree.lay || '';
+  const keep = MM.tree; MM.tree = tree;
+  try{
+    const ctx = document.createElement('canvas').getContext('2d');
+    const h = mmLayoutH(ctx), v = mmLayoutV(ctx);
+    const rh = h.H/Math.max(h.W,320), rv = v.H/Math.max(v.W,320);
+    return Math.abs(Math.log(rh/ar)) <= Math.abs(Math.log(rv/ar)) ? 'h' : 'v';
+  }catch(e){ return ''; } finally { MM.tree = keep; }
+}
+/* trees: 마인드맵 데이터 또는 {tree, ar}(저장된 그림 비율을 함께 줄 때) */
 function mmStudyOpen(trees, title, cat){
-  const list = trees.map(t=>{ const c = mmClone(mmWrapHidden(t)); (function w(x){ delete x.col; (x.ch||[]).forEach(w); })(c); return c; }).filter(mmHasBlank);
+  const list = trees.map(x=>{
+    const tr = (x && x.tree) ? x.tree : x, ar = (x && x.tree) ? x.ar : 0;
+    const c = mmClone(mmWrapHidden(tr)); (function w(n){ delete n.col; (n.ch||[]).forEach(w); })(c);
+    if(!c.lay && tr.lay) c.lay = tr.lay;
+    if(!c.lay && ar){ const l = mmPickLay(c, ar); if(l) c.lay = l; }
+    return c;
+  }).filter(mmHasBlank);
   if(!list.length){ showToast('가릴 칸이 아직 없어요. 칸을 누른 뒤 "빈칸 지정"을 눌러 먼저 정해주세요'); return; }
   MS.list = list; MS.idx = 0; MS.title = title || '마인드맵'; MS.cat = cat || MS.title;
   document.getElementById('mm-study').style.display = 'flex';
@@ -2701,25 +2748,160 @@ function mmStudyOpen(trees, title, cat){
   mmStudyLoad();
 }
 function mmStudyLoad(){
-  MS.tree = MS.list[MS.idx];
+  MS.tree = MS.list[MS.idx]; MS.zoom = 1;
   MS.hide = new Set(); (function w(x){ if(x.bl) MS.hide.add(x.id); (x.ch||[]).forEach(w); })(MS.tree);
   neEl('ms2-scroll').scrollTop = 0; neEl('ms2-scroll').scrollLeft = 0;
   if(MS.list.length>1) neEl('ms2-next').textContent = `다음 ▸ (${MS.idx+1}/${MS.list.length})`;
-  mmStudyRender();
+  mmStudyOpenFit();
+}
+/* 처음엔 노트에 보이던 그림 전체가 화면에 들어오는 크기로 보여줌 (확대는 ＋ / 두 손가락) */
+function mmStudyOpenFit(){
+  MS.zoom = 1; mmStudyRender();
+  const f = mmStudyFitZoom();
+  if(f < 0.98){ MS.zoom = f; mmStudyRender(); }
 }
 function mmStudyRender(){
   const cv = neEl('ms2-canvas'), ctx = cv.getContext('2d');
   const L = mmLayoutOf(MS.tree); MS.layout = L;
-  const sc = neEl('ms2-scroll');
+  const sc = neEl('ms2-scroll'), z = MS.zoom || 1;
   const vw = sc.clientWidth || 360, vh = sc.clientHeight || 400;
-  const W = Math.max(L.W, vw), H = Math.max(L.H, vh), dpr = Math.min(window.devicePixelRatio||1, 2);
-  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
-  cv.style.width = W+'px'; cv.style.height = H+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const W = Math.max(L.W, vw/z), H = Math.max(L.H, vh/z);     // 그림 좌표 기준 크기
+  let k = z*Math.min(window.devicePixelRatio||1, 2);
+  if(W*H*k*k > 1e7) k *= Math.sqrt(1e7/(W*H*k*k));              // 너무 커지면 해상도만 낮춤(브라우저 한도)
+  cv.width = Math.round(W*k); cv.height = Math.round(H*k);
+  cv.style.width = (W*z)+'px'; cv.style.height = (H*z)+'px';
+  ctx.setTransform(k,0,0,k,0,0); ctx.clearRect(0,0,W,H);
   mmDraw(ctx, L, null, { hide: MS.hide });
   const total = mmBlankCount(MS.tree);
-  neEl('ms2-info').textContent = `가려진 칸 ${MS.hide.size} / 빈칸 ${total}개 — "?" 칸을 눌러서 답을 확인하세요. 다시 누르면 가려져요.`;
+  neEl('ms2-info').textContent = `가려진 칸 ${MS.hide.size} / 빈칸 ${total}개 — "?" 칸을 눌러서 답을 확인하세요. 다시 누르면 가려져요. 두 손가락으로 벌리거나 오므려 크기를 바꿀 수 있어요.`;
+  neEl('ms2-zfit').textContent = Math.round(z*100)+'%';
+  neEl('ms2-lay').textContent = L.mode==='v' ? '가로형으로' : '세로형으로';
 }
+function mmStudyFitZoom(){ const L = MS.layout; const vw = neEl('ms2-scroll').clientWidth || 360; return L ? Math.max(0.2, Math.min(1, vw/L.W)) : 1; }
+function mmStudyZoom(z, cx, cy){
+  z = Math.max(0.2, Math.min(3, z)); const old = MS.zoom || 1;
+  if(Math.abs(z-old) < 0.005) return;
+  zoomKeepFocus(neEl('ms2-scroll'), old, z, cx, cy, ()=>{ MS.zoom = z; mmStudyRender(); });
+}
+/* ----- 확대·축소 공통: 두 손가락 벌리기/오므리기, Ctrl(⌘)+휠. 확대해도 눈에 보이는 중심이 그대로 유지됨 ----- */
+function zoomKeepFocus(sc, oldZ, newZ, cx, cy, apply){
+  const r = sc.getBoundingClientRect();
+  const ox = (cx==null ? r.width/2 : cx - r.left), oy = (cy==null ? r.height/2 : cy - r.top);
+  const px = sc.scrollLeft + ox, py = sc.scrollTop + oy;
+  apply();
+  const k = newZ/oldZ;
+  sc.scrollLeft = px*k - ox; sc.scrollTop = py*k - oy;
+}
+function zoomGesture(sc, api){
+  const dist = t=>Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+  let p = null;
+  sc.addEventListener('touchstart', e=>{ p = e.touches.length===2 ? { d:dist(e.touches), z:api.get() } : null; }, {passive:true});
+  sc.addEventListener('touchmove', e=>{
+    if(!p || e.touches.length!==2) return;
+    if(e.cancelable) e.preventDefault();
+    const t = e.touches;
+    api.set(p.z*dist(t)/Math.max(p.d,1), (t[0].clientX+t[1].clientX)/2, (t[0].clientY+t[1].clientY)/2);
+  }, {passive:false});
+  const end = e=>{ if(e.touches.length<2) p = null; };
+  sc.addEventListener('touchend', end); sc.addEventListener('touchcancel', end);
+  sc.addEventListener('wheel', e=>{
+    if(!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    api.set(api.get()*Math.exp(-e.deltaY*(e.deltaMode===1 ? 0.05 : 0.01)), e.clientX, e.clientY);
+  }, {passive:false});
+}
+/* ----- 노트 그림 확대 보기: 요점 목록의 그림을 누르면 전체 화면에서 확대/축소·이동 ----- */
+const ZV = { z:1, src:null, baseW:0, hn:0, cv:null, bi:null, tok:0, t:0 };
+function zvOpen(nid){
+  const src = (data.notes||[]).find(n=>n.id===nid);
+  if(!src || !noteHasVisual(src)) return;
+  ZV.src = src; ZV.z = 1;
+  neEl('zv-title').textContent = src.title || '';
+  neEl('zv').style.display = 'flex';
+  zvBuild();
+  const sc = neEl('zv-scroll'); sc.scrollTop = 0; sc.scrollLeft = 0;
+}
+function zvClose(){ neEl('zv').style.display = 'none'; neEl('zv-box').innerHTML = ''; ZV.src = null; ZV.cv = null; ZV.bi = null; clearTimeout(ZV.t); }
+function zvBuild(){
+  const sc = neEl('zv-scroll'), box = neEl('zv-box'), src = ZV.src; if(!src) return;
+  ZV.baseW = Math.max(200, Math.min(sc.clientWidth || 360, 1100));
+  const att = src.att || [], strokes = src.strokes || [];
+  let inkB = 0; strokes.forEach(st=>{ if(st.t!=='e') inkB = Math.max(inkB, strokeBB(st).y1 + st.w); });
+  if(src.drawing && src.drawingW) inkB = Math.max(inkB, src.drawingH/src.drawingW);
+  const hn = ZV.hn = Math.max(att.reduce((t,a)=>t+a.ar, 0), inkB, 0.05);
+  const tok = ++ZV.tok;
+  box.innerHTML = ''; ZV.cv = null; ZV.bi = null;
+  let top = 0;
+  att.forEach(a=>{
+    const img = document.createElement('img'); img.alt = '첨부'; img.draggable = false;
+    img.style.top = (top/hn*100)+'%'; img.style.height = (a.ar/hn*100)+'%';
+    box.appendChild(img); top += a.ar;
+    attUrl(a).then(u=>{ if(u && ZV.tok===tok) img.src = u; });
+  });
+  if(strokes.length || src.drawing){
+    const cv = document.createElement('canvas'); box.appendChild(cv); ZV.cv = cv;
+    if(src.drawing){ const bi = new Image(); bi.onload = ()=>{ if(ZV.tok===tok){ ZV.bi = bi; zvInk(); } }; bi.src = src.drawing; }
+  }
+  zvSize(true);
+}
+function zvSize(now){
+  const box = neEl('zv-box'), w = ZV.baseW*ZV.z;
+  box.style.width = w+'px'; box.style.height = (w*ZV.hn)+'px';
+  neEl('zv-pct').textContent = Math.round(ZV.z*100)+'%';
+  clearTimeout(ZV.t);
+  if(now) zvInk(); else ZV.t = setTimeout(zvInk, 160);     // 손글씨는 확대가 끝난 뒤 선명하게 다시 그림
+}
+function zvInk(){
+  const cv = ZV.cv, src = ZV.src; if(!cv || !src) return;
+  if(src.drawing && !ZV.bi) return;
+  let kw = Math.min(ZV.baseW*ZV.z*Math.min(window.devicePixelRatio||1, 2), 4096);
+  if(kw*kw*ZV.hn > 1.2e7) kw = Math.sqrt(1.2e7/ZV.hn);
+  cv.width = Math.max(1, Math.round(kw)); cv.height = Math.max(1, Math.round(kw*ZV.hn));
+  inkRender(cv, src.strokes || [], ZV.bi, src.drawingW || (ZV.bi && ZV.bi.naturalWidth) || 0, src.drawingH || (ZV.bi && ZV.bi.naturalHeight) || 0, cv.width);
+}
+function zvZoom(z, cx, cy){
+  if(!ZV.src) return;
+  z = Math.max(1, Math.min(6, z)); const old = ZV.z;
+  if(Math.abs(z-old) < 0.005) return;
+  zoomKeepFocus(neEl('zv-scroll'), old, z, cx, cy, ()=>{ ZV.z = z; zvSize(); });
+}
+(function(){
+  const sc = neEl('zv-scroll');
+  neEl('zv-close').addEventListener('click', zvClose);
+  neEl('zv-in').addEventListener('click', ()=>zvZoom(ZV.z*1.4));
+  neEl('zv-out').addEventListener('click', ()=>zvZoom(ZV.z/1.4));
+  neEl('zv-pct').addEventListener('click', ()=>zvZoom(1));
+  zoomGesture(sc, { get:()=>ZV.z, set:zvZoom });
+  // 두 번 탭(두 번 클릭)하면 확대 ↔ 원래 크기, 마우스는 끌어서 이동
+  const ptrs = new Set(); let down = null, lastTap = null;
+  sc.addEventListener('pointerdown', e=>{
+    ptrs.add(e.pointerId);
+    down = { x:e.clientX, y:e.clientY, sl:sc.scrollLeft, st:sc.scrollTop, t:Date.now(), multi: ptrs.size>1 };
+    if(e.pointerType==='mouse'){ try{ sc.setPointerCapture(e.pointerId); }catch(_){} }
+  });
+  sc.addEventListener('pointermove', e=>{
+    if(down && e.pointerType==='mouse' && (e.buttons & 1)){ sc.scrollLeft = down.sl - (e.clientX-down.x); sc.scrollTop = down.st - (e.clientY-down.y); }
+  });
+  const up = e=>{
+    ptrs.delete(e.pointerId);
+    const d = down; if(ptrs.size===0) down = null;
+    if(e.type!=='pointerup' || !d || d.multi) { lastTap = null; return; }
+    const moved = Math.hypot(e.clientX-d.x, e.clientY-d.y), now = Date.now();
+    if(moved > 10 || now - d.t > 450){ lastTap = null; return; }
+    if(lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX-lastTap.x, e.clientY-lastTap.y) < 40){
+      lastTap = null; zvZoom(ZV.z < 1.5 ? 2.5 : 1, e.clientX, e.clientY);
+    } else lastTap = { t:now, x:e.clientX, y:e.clientY };
+  };
+  sc.addEventListener('pointerup', up); sc.addEventListener('pointercancel', up);
+  document.addEventListener('keydown', e=>{
+    if(neEl('zv').style.display!=='flex') return;
+    if(e.key==='Escape') zvClose();
+    else if(e.key==='+' || e.key==='=') zvZoom(ZV.z*1.4);
+    else if(e.key==='-' || e.key==='_') zvZoom(ZV.z/1.4);
+    else if(e.key==='0') zvZoom(1);
+  });
+  window.addEventListener('resize', ()=>{ if(neEl('zv').style.display==='flex'){ ZV.baseW = Math.max(200, Math.min(sc.clientWidth || 360, 1100)); zvSize(); } });
+})();
 function mmStudySend(){
   const out = [];
   (function w(n, path){
@@ -2756,7 +2938,8 @@ async function attUrl(a){
   if(!attRegen.has(a.id)){
     attRegen.set(a.id, (async()=>{
       try{
-        const tree = a.mm.hidden ? a.mm : { id:'sr0', t:'', hidden:true, ch:[a.mm] };
+        let tree = a.mm.hidden ? a.mm : { id:'sr0', t:'', hidden:true, ch:[a.mm] };
+        if(!tree.lay && a.ar){ const l = mmPickLay(tree, a.ar); if(l) tree = Object.assign({}, tree, { lay:l }); }   // 노트에 잡힌 그림 비율과 같은 배치로 (안 그러면 그림이 늘어나 보임)
         const r = await mmRenderPng(tree);
         if(r && r.blob){ await AttDB.put(a.id, r.blob); return await AttDB.url(a.id); }
       }catch(e){ console.error(e); }
@@ -2966,8 +3149,27 @@ async function mmFinish(){
   neEl('ms2-hide').addEventListener('click', ()=>{ MS.hide = new Set(); (function w(x){ if(x.bl) MS.hide.add(x.id); (x.ch||[]).forEach(w); })(MS.tree); mmStudyRender(); });
   neEl('ms2-show').addEventListener('click', ()=>{ MS.hide = new Set(); mmStudyRender(); });
   neEl('ms2-memo').addEventListener('click', mmStudySend);
+  neEl('ms2-zin').addEventListener('click', ()=>mmStudyZoom((MS.zoom||1)*1.25));
+  neEl('ms2-zout').addEventListener('click', ()=>mmStudyZoom((MS.zoom||1)/1.25));
+  neEl('ms2-zfit').addEventListener('click', ()=>{ const f = mmStudyFitZoom(); mmStudyZoom(Math.abs((MS.zoom||1)-f) > 0.02 ? f : 1); });
+  neEl('ms2-lay').addEventListener('click', ()=>{
+    if(!MS.tree || !MS.layout) return;
+    MS.tree.lay = MS.layout.mode==='v' ? 'h' : 'v';
+    neEl('ms2-scroll').scrollTop = 0; neEl('ms2-scroll').scrollLeft = 0;
+    mmStudyOpenFit();
+  });
+  zoomGesture(neEl('ms2-scroll'), { get:()=>MS.zoom||1, set:mmStudyZoom });
+  if('ResizeObserver' in window){
+    let lw = 0, lh = 0, raf = 0;
+    new ResizeObserver(()=>{
+      const sc = neEl('ms2-scroll'); if(neEl('mm-study').style.display!=='flex') return;
+      if(sc.clientWidth===lw && sc.clientHeight===lh) return;
+      lw = sc.clientWidth; lh = sc.clientHeight;
+      cancelAnimationFrame(raf); raf = requestAnimationFrame(()=>{ if(MS.tree) mmStudyRender(); });
+    }).observe(neEl('ms2-scroll'));
+  }
   neEl('ms2-canvas').addEventListener('click', e=>{
-    const r = neEl('ms2-canvas').getBoundingClientRect(), x = e.clientX-r.left, y = e.clientY-r.top;
+    const r = neEl('ms2-canvas').getBoundingClientRect(), z = MS.zoom || 1, x = (e.clientX-r.left)/z, y = (e.clientY-r.top)/z;
     const hit = MS.layout && MS.layout.nodes.slice().reverse().find(o=>o.n.bl && x>=o.x-4 && x<=o.x+o.w+4 && y>=o.y-4 && y<=o.y+o.h+4);
     if(!hit) return;
     if(MS.hide.has(hit.n.id)) MS.hide.delete(hit.n.id); else MS.hide.add(hit.n.id);
@@ -3231,7 +3433,7 @@ function renderNotesListView(){
     b.addEventListener('click', (e)=>{
       e.stopPropagation();
       const n = data.notes.find(x=>x.id===b.dataset.id); if(!n) return;
-      mmStudyOpen((n.att||[]).filter(a=>a.mm).map(a=>a.mm), blankCat(n), blankCat(n));
+      mmStudyOpen((n.att||[]).filter(a=>a.mm).map(a=>({ tree:a.mm, ar:a.ar })), blankCat(n), blankCat(n));
     });
   });
   container.querySelectorAll('.note-czstudy-btn').forEach(b=>{
@@ -3246,6 +3448,9 @@ function renderNotesListView(){
   });
   container.querySelectorAll('.note-del-btn').forEach(b=>{
     b.addEventListener('click', (e)=>{ e.stopPropagation(); confirmDelete(()=>deleteNote(b.dataset.id)); });
+  });
+  container.querySelectorAll('.nv[data-nid]').forEach(el=>{
+    el.addEventListener('click', e=>{ e.stopPropagation(); zvOpen(el.dataset.nid); });
   });
   hydrateNV(container);
 }
@@ -5198,8 +5403,8 @@ function renderBlankStudy(){
   });
   if(mig){ saveData().then(()=>{ try{ renderStatStrip(); }catch(e){} }); }
   (data.notes||[]).forEach(n=>{
-    const trees = (n.att||[]).filter(a=>a.mm && mmHasBlank(a.mm)).map(a=>a.mm);
-    const nm = trees.reduce((s,t)=>s+mmBlankCount(t),0);
+    const trees = (n.att||[]).filter(a=>a.mm && mmHasBlank(a.mm)).map(a=>({ tree:a.mm, ar:a.ar }));
+    const nm = trees.reduce((s,t)=>s+mmBlankCount(t.tree),0);
     if(trees.length) sets.push({ n, kind:'mm', trees, cnt:nm });
     if(n.cz && (n.cz.bl||[]).length) sets.push({ n, kind:'cz', cnt:n.cz.bl.length });
   });
