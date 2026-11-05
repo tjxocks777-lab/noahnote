@@ -1194,7 +1194,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-I</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-J</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1353,7 +1353,6 @@
       <button id="ms2-lay" title="가로형 ↔ 세로형(폰 화면에 맞춰 크게 보임)">세로형으로</button>
       <button id="ms2-hide">모두 가리기</button>
       <button id="ms2-show">모두 보기</button>
-      <button id="ms2-memo">암기 항목으로 보내기</button>
     </div>
   </div>
 </div>
@@ -1398,7 +1397,7 @@
     <p class="mm-info" id="cz-info"></p>
     <div class="mm-row" id="cz-r-text"><button id="cz-to-pick">빈칸 고르기 ▸</button></div>
     <div class="mm-row" id="cz-r-pick" style="display:none;"><button id="cz-auto">자동 추천 (약 20%)</button><button id="cz-clear">모두 해제</button><button id="cz-to-study">학습 ▸</button></div>
-    <div class="mm-row" id="cz-r-study" style="display:none;"><button id="cz-hide">모두 가리기</button><button id="cz-show">모두 보기</button><button id="cz-memo">암기 항목으로 보내기</button></div>
+    <div class="mm-row" id="cz-r-study" style="display:none;"><button id="cz-hide">모두 가리기</button><button id="cz-show">모두 보기</button></div>
   </div>
 </div>
 
@@ -2142,7 +2141,7 @@ document.getElementById('note-save-btn').addEventListener('click', async ()=>{
 
   if(noteEditingId){
     const n = data.notes.find(x=>x.id===noteEditingId);
-    if(n){ Object.assign(n, {part:category, title, content}, drawFields); blankReconcileNote(n); }
+    if(n){ Object.assign(n, {part:category, title, content}, drawFields); }
   } else {
     const nn = Object.assign({
       id: 'n_'+Date.now()+'_'+Math.floor(Math.random()*1000),
@@ -2150,7 +2149,6 @@ document.getElementById('note-save-btn').addEventListener('click', async ()=>{
       createdAt: todayStr()
     }, drawFields);
     data.notes.push(nn);
-    blankReconcileNote(nn);
   }
   await saveData();
   pruneAtt(oldAtt, drawFields.att);
@@ -3082,34 +3080,6 @@ function zvZoom(z, cx, cy){
   });
   window.addEventListener('resize', ()=>{ if(neEl('zv').style.display==='flex'){ ZV.baseW = Math.max(200, Math.min(sc.clientWidth || 360, 1100)); zvSize(); } });
 })();
-function mmStudySend(){
-  const out = [];
-  (function w(n, path){
-    (n.ch||[]).forEach(c=>{
-      const txt = String(c.t||'').replace(/\s*\n\s*/g,' ').trim();
-      if(c.bl && txt){
-        const q = (path.length ? path.join(' › ') : MS.title) + ' › ?';
-        const kids = (c.ch||[]).map(k=>String(k.t||'').replace(/\s*\n\s*/g,' ').trim()).filter(Boolean);
-        out.push({ q, a: txt, ex: `마인드맵 '${MS.title}'` + (kids.length ? ' · 하위: '+kids.join(', ') : '') });
-      }
-      w(c, c.hidden ? path : path.concat(String(c.t||'').replace(/\s*\n\s*/g,' ').trim()));
-    });
-  })(MS.tree, []);
-  if(!out.length){ showToast('보낼 빈칸이 없어요'); return; }
-  const cat = MS.cat;
-  showConfirmModal(`빈칸 ${out.length}개를 '${cat}' 분류의 암기 항목으로 보낼까요? 오늘의 복습에 나오고, 이미 있는 항목은 건너뛰어요.`, async ()=>{
-    const have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
-    let add = 0;
-    out.forEach((o,i)=>{
-      if(have.has(cat+'||'+o.q)) return;
-      data.questions.push({ id:'m_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*10000), type:'memo', part:cat, question:o.q, choices:null, answer:o.a, explanation:o.ex,
-        box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr() });
-      add++;
-    });
-    await saveData(); try{ renderStatStrip(); }catch(_){}
-    showToast(add ? `암기 항목 ${add}개를 추가했어요` : '이미 모두 추가돼 있어요');
-  }, null, '보내기', '취소');
-}
 /* 첨부 그림 주소: 저장된 사진이 없고 마인드맵 데이터가 있으면 마인드맵을 다시 그려서 채워 넣음 */
 const attRegen = new Map();
 async function attUrl(a){
@@ -3328,7 +3298,6 @@ async function mmFinish(){
   neEl('ms2-next').addEventListener('click', ()=>{ MS.idx = (MS.idx+1) % MS.list.length; mmStudyLoad(); });
   neEl('ms2-hide').addEventListener('click', ()=>{ MS.hide = new Set(); (function w(x){ if(x.bl) MS.hide.add(x.id); (x.ch||[]).forEach(w); })(MS.tree); mmStudyRender(); });
   neEl('ms2-show').addEventListener('click', ()=>{ MS.hide = new Set(); mmStudyRender(); });
-  neEl('ms2-memo').addEventListener('click', mmStudySend);
   neEl('ms2-zin').addEventListener('click', ()=>mmStudyZoom((MS.zoom||1)*1.25));
   neEl('ms2-zout').addEventListener('click', ()=>mmStudyZoom((MS.zoom||1)/1.25));
   neEl('ms2-zfit').addEventListener('click', ()=>{ const f = mmStudyFitZoom(); mmStudyZoom(Math.abs((MS.zoom||1)-f) > 0.02 ? f : 1); });
@@ -3584,7 +3553,6 @@ function renderNotesListView(){
           <div class="row-actions">
             ${(n.att||[]).some(a=>a.mm && mmHasBlank(a.mm)) ? `<button class="note-study-btn" data-id="${n.id}">빈칸 학습</button>` : ''}
             ${(n.cz && (n.cz.bl||[]).length) ? `<button class="note-czstudy-btn" data-id="${n.id}">글 빈칸 학습</button>` : ''}
-            <button class="note-quiz-btn" data-id="${n.id}">퀴즈 만들기</button>
             <button class="note-edit-btn" data-id="${n.id}">수정</button>
             <button class="note-del-btn" data-id="${n.id}">삭제</button>
           </div>
@@ -3622,9 +3590,6 @@ function renderNotesListView(){
       const n = data.notes.find(x=>x.id===b.dataset.id); if(!n || !n.cz) return;
       czOpen({ text:n.cz.text, bl:n.cz.bl, title:blankCat(n), mode:'study' });
     });
-  });
-  container.querySelectorAll('.note-quiz-btn').forEach(b=>{
-    b.addEventListener('click', (e)=>{ e.stopPropagation(); const n = data.notes.find(x=>x.id===b.dataset.id); if(n) openQuizGen(n); });
   });
   container.querySelectorAll('.note-del-btn').forEach(b=>{
     b.addEventListener('click', (e)=>{ e.stopPropagation(); confirmDelete(()=>deleteNote(b.dataset.id)); });
@@ -4711,31 +4676,6 @@ function czOpen(o){
   if(m==='study' && !CZ.bl.size){ czSetMode('pick'); showToast('가릴 낱말을 먼저 골라주세요'); return; }
   czSetMode(m);
 }
-function czSentenceQ(toks, idx){
-  // 빈칸이 들어 있는 문장을 잘라서, 그 낱말만 ____ 로 바꿈
-  let before = '', after = '';
-  for(let k=idx-1;k>=0;k--){ const t = toks[k]; const cut = k%2===0 ? t.search(/[.!?。\n][^.!?。\n]*$/) : -1; if(cut>=0){ before = t.slice(cut+1) + before; break; } before = t + before; }
-  for(let k=idx+1;k<toks.length;k++){ const t = toks[k]; const cut = k%2===0 ? t.search(/[.!?。\n]/) : -1; if(cut>=0){ after += t.slice(0,cut+1); break; } after += t; }
-  return (before.replace(/^\s+/,'') + '____' + after).replace(/\s*\n\s*/g,' ').replace(/\s{2,}/g,' ').trim().slice(0,240);
-}
-function czSend(){
-  const toks = czToks(CZ.text), out = [];
-  Array.from(CZ.bl).sort((a,b)=>a-b).forEach(i=>{ if(toks[i]) out.push({ q: czSentenceQ(toks, i), a: toks[i] }); });
-  if(!out.length){ showToast('보낼 빈칸이 없어요'); return; }
-  const cat = CZ.title;
-  showConfirmModal(`빈칸 ${out.length}개를 '${cat}' 분류의 암기 항목(빈칸 퀴즈)으로 보낼까요? 오늘의 복습에 나오고, 이미 있는 항목은 건너뛰어요.`, async ()=>{
-    const have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
-    let add = 0;
-    out.forEach((o,k)=>{
-      if(have.has(cat+'||'+o.q)) return; have.add(cat+'||'+o.q);
-      data.questions.push({ id:'m_'+Date.now()+'_'+k+'_'+Math.floor(Math.random()*10000), type:'memo', part:cat, question:o.q, choices:null, answer:o.a, explanation:`글 빈칸 퀴즈 · ${cat}`,
-        box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr() });
-      add++;
-    });
-    await saveData(); try{ renderStatStrip(); }catch(_){}
-    showToast(add ? `암기 항목 ${add}개를 추가했어요` : '이미 모두 추가돼 있어요');
-  }, null, '보내기', '취소');
-}
 async function czOcr(blobs){
   const prompt = `이 이미지는 학습 자료(교재, 필기, 프린트)의 글입니다. 이미지에 있는 글을 읽는 순서대로 빠짐없이 옮겨 적으세요. 아래 JSON 형식으로만 답하세요. 코드블록이나 다른 설명 없이 순수 JSON만 출력하세요.
 
@@ -4788,7 +4728,6 @@ async function czImportPdf(file){
   $('cz-clear').addEventListener('click', ()=>{ CZ.bl = new Set(); CZ.hide = new Set(); czRender(); });
   $('cz-hide').addEventListener('click', ()=>{ CZ.hide = new Set(CZ.bl); czRender(); });
   $('cz-show').addEventListener('click', ()=>{ CZ.hide = new Set(); czRender(); });
-  $('cz-memo').addEventListener('click', czSend);
   $('cz-view').addEventListener('click', e=>{
     const sp = e.target.closest('.w'); if(!sp) return; const i = +sp.dataset.i;
     if(CZ.mode==='pick'){ if(CZ.bl.has(i)) CZ.bl.delete(i); else CZ.bl.add(i); CZ.hide = new Set(CZ.bl); czRender(); }
@@ -4998,7 +4937,7 @@ function renderTrash(){
   box.querySelectorAll('.tr-restore').forEach(b=>b.addEventListener('click', async ()=>{
     const t = (data.trash||[]).find(x=>String(x.at)===b.dataset.at); if(!t) return;
     data.trash = data.trash.filter(x=>x!==t);
-    if(t.kind==='note'){ data.notes.push(t.item); blankReconcileNote(t.item); renderNotesListView(); }
+    if(t.kind==='note'){ data.notes.push(t.item); renderNotesListView(); }
     else { data.questions.push(t.item); renderCatSummary(); }
     await saveData(); renderStatStrip(); renderTrash(); showToast('복구했어요');
   }));
@@ -5211,7 +5150,7 @@ async function sharedIntake(){
     body.querySelector('#sh-save').addEventListener('click', async ()=>{ make(); await saveData(); renderNotes && renderNotes(); document.getElementById('aipanel').style.display='none'; showToast('노트로 저장했어요'); });
     body.querySelector('#sh-cz').addEventListener('click', async ()=>{
       const n = make(); await saveData(); document.getElementById('aipanel').style.display='none';
-      czOpen({ text:n.content, bl:[], title:blankCat(n), mode:'pick', onSave: async (t,b)=>{ n.content = t; n.cz = b.length ? {text:t, bl:b} : null; const added = blankReconcileNote(n); await saveData(); renderNotes && renderNotes(); renderStatStrip(); showToast(b.length ? `빈칸 ${b.length}개를 저장했어요 (복습 문제 ${added}개 추가)` : '노트로 저장했어요'); } });
+      czOpen({ text:n.content, bl:[], title:blankCat(n), mode:'pick', onSave: async (t,b)=>{ n.content = t; n.cz = b.length ? {text:t, bl:b} : null; await saveData(); renderNotes && renderNotes(); renderStatStrip(); showToast(b.length ? `빈칸 ${b.length}개를 저장했어요 (복습 탭의 빈칸 학습에서 볼 수 있어요)` : '노트로 저장했어요'); } });
     });
   }
 }
@@ -5289,14 +5228,6 @@ async function aiJson(prompt, maxTokens){
 }
 function aiPanel(title){ document.getElementById('ai-title').textContent = title; document.getElementById('aipanel').style.display='flex'; return document.getElementById('ai-body'); }
 document.getElementById('ai-close').addEventListener('click', ()=>{ document.getElementById('aipanel').style.display = 'none'; });
-function mmTexts(tree){ const out=[]; (function w(x,d){ (x.ch||[]).forEach(c=>{ const t=String(c.t||'').replace(/\s*\n\s*/g,' ').trim(); if(t) out.push('  '.repeat(d)+'- '+t); w(c, c.hidden?d:d+1); }); })(tree,0); return out.join('\n'); }
-function noteSourceText(n){
-  const parts = [];
-  if(n.content) parts.push(String(n.content));
-  (n.att||[]).forEach(a=>{ if(a.mm) parts.push(mmTexts(a.mm)); });
-  if(n.cz && n.cz.text) parts.push(String(n.cz.text));
-  return parts.join('\n\n').trim().slice(0, 7000);
-}
 function aiQuestionsPreview(body, list, cat, srcExtra){
   // list: [{question, A,B,C,D, answer, explanation}]
   const ok = list.filter(x=>x && x.question && x.answer);
@@ -5328,43 +5259,6 @@ function aiQuestionsPreview(body, list, cat, srcExtra){
   });
 }
 function aiCostNote(){ return scanMode()==='eco' ? '절약 모드로 만들어요 (한 번에 몇 원 수준)' : '정확 모드로 만들어요 (비용이 더 들어요)'; }
-function openQuizGen(n){
-  const body = aiPanel('퀴즈 만들기'); const src = noteSourceText(n), cat = blankCat(n);
-  if(src.length < 20){ body.innerHTML = '<div class="st-note">이 노트에 글 내용이 거의 없어요. 글이나 마인드맵 내용이 있어야 퀴즈를 만들 수 있어요. (손글씨·사진만 있는 노트는 글로 바꿔 적어주세요)</div>'; return; }
-  let kind = 'mix', cnt = 5;
-  const draw = ()=>{
-    body.innerHTML = `<div class="st-card"><p class="st-h">${escapeHtml(cat)}</p><div class="st-note" style="margin:0 0 10px;">노트 내용으로 문제를 만들어요. 만든 문제는 확인한 뒤 선택해서 복습에 넣어요.</div>
-      <div class="st-h">문제 유형</div><div class="ai-opt" id="ai-kind"><button data-v="mc">객관식</button><button data-v="short">단답형</button><button data-v="mix">섞어서</button></div>
-      <div class="st-h">문제 수</div><div class="ai-opt" id="ai-cnt"><button data-v="5">5개</button><button data-v="10">10개</button><button data-v="15">15개</button></div>
-      <div class="st-note">${aiCostNote()}</div>
-      <div class="btn-row" style="margin-top:10px;"><button class="btn" id="ai-go">문제 만들기</button></div><div id="ai-status" class="st-note"></div></div><div id="ai-res"></div>`;
-    body.querySelectorAll('#ai-kind button').forEach(b=>{ if(b.dataset.v===kind) b.classList.add('on'); b.addEventListener('click', ()=>{ kind=b.dataset.v; draw(); }); });
-    body.querySelectorAll('#ai-cnt button').forEach(b=>{ if(+b.dataset.v===cnt) b.classList.add('on'); b.addEventListener('click', ()=>{ cnt=+b.dataset.v; draw(); }); });
-    body.querySelector('#ai-go').addEventListener('click', async ()=>{
-      const btn = body.querySelector('#ai-go'), st = body.querySelector('#ai-status'), res = body.querySelector('#ai-res');
-      btn.disabled = true; st.textContent = '문제를 만들고 있어요...'; res.innerHTML = '';
-      const kindTxt = kind==='mc' ? '모두 4지선다 객관식' : (kind==='short' ? '모두 단답형(정답이 짧은 단어나 문장)' : '객관식과 단답형을 절반씩');
-      const prompt = `아래 학습 노트를 바탕으로 시험 대비 문제를 ${cnt}개 만드세요. ${kindTxt}으로 만드세요.
-규칙:
-- 노트에 있는 내용만 사용하고 없는 사실을 지어내지 마세요. 노트가 영어면 문제도 영어, 한국어면 한국어로 만드세요.
-- 문제는 서로 다른 개념을 묻도록 하고, 정답이 문제 문장에 그대로 드러나지 않게 하세요.
-- 객관식은 그럴듯한 오답 3개를 포함하고 정답 위치를 골고루 섞으세요.
-- 해설은 한두 문장으로 짧게 쓰세요.
-순수 JSON 배열로만 답하세요(코드블록·설명 금지). 형식:
-[{"question":"문제","A":"보기","B":"보기","C":"보기","D":"보기","answer":"A","explanation":"해설"}, {"question":"단답형 문제","answer":"정답","explanation":"해설"}]
-(단답형은 A~D를 생략하세요)
-
-[노트: ${n.title}]
-${src}`;
-      try{
-        const arr = await aiJson(prompt, Math.min(4000, 350*cnt+300));
-        st.textContent = ''; aiQuestionsPreview(res, Array.isArray(arr)?arr:[], cat, { src:'aiquiz', srcNote:n.id });
-      }catch(e){ st.textContent = '만들지 못했어요. 원인: '+scanErrText(e); }
-      btn.disabled = false;
-    });
-  };
-  draw();
-}
 function openVariantGen(items){
   const body = aiPanel('변형 문제 만들기');
   const pick = items.slice(0, 8);
@@ -5521,60 +5415,11 @@ document.getElementById('stats-open-btn').addEventListener('click', openStats);
 document.getElementById('hdr-stats').addEventListener('click', openStats);
 document.getElementById('hdr-grp').addEventListener('click', ()=>openGroup());
 
-/* ---------- 노트의 빈칸 → 오늘의 복습 자동 연결 ---------- */
+/* ---------- 노트 분류 이름 · 빈칸 학습 목록 ---------- */
 function blankCat(n){ const p=(n.part||'').trim(), t=(n.title||'').trim(); return (p && t && p!==t) ? p+' '+t : (t||p||'기타'); }
-function blankItemsOf(n){
-  const out = [], clean = t=>String(t||'').replace(/\s*\n\s*/g,' ').trim();
-  (n.att||[]).forEach(a=>{
-    if(!a.mm) return;
-    (function w(x, path){
-      (x.ch||[]).forEach(c=>{
-        const txt = clean(c.t);
-        if(c.bl && txt){
-          const kids = (c.ch||[]).map(k=>clean(k.t)).filter(Boolean);
-          out.push({ key:'m:'+c.id, q:(path.length ? path.join(' › ') : blankCat(n)) + ' › ?', a:txt,
-            ex:`마인드맵 '${blankCat(n)}'`+(kids.length ? ' · 하위: '+kids.join(', ') : '') });
-        }
-        w(c, x.hidden ? path : path.concat(txt));
-      });
-    })(a.mm, []);
-  });
-  if(n.cz && (n.cz.bl||[]).length){
-    const toks = czToks(n.cz.text);
-    n.cz.bl.forEach(i=>{ if(toks[i]) out.push({ key:'z:'+i+':'+toks[i], q:czSentenceQ(toks, i), a:toks[i], ex:`글 빈칸 퀴즈 · ${blankCat(n)}` }); });
-  }
-  return out;
-}
-function blankReconcileNote(n){
-  if(!n) return 0;
-  const exp = blankItemsOf(n), byKey = new Map(exp.map(e=>[e.key,e]));
-  let added = 0;
-  const mine = data.questions.filter(q=>q.src==='blank' && q.srcNote===n.id);
-  const seen = new Set();
-  // 없어진 빈칸은 복습에서 빼고, 남은 건 내용만 갱신(학습 기록은 유지)
-  data.questions = data.questions.filter(q=>{
-    if(!(q.src==='blank' && q.srcNote===n.id)) return true;
-    const e = byKey.get(q.bkey); if(!e || seen.has(q.bkey)) return false;
-    seen.add(q.bkey); q.part = blankCat(n); q.question = e.q; q.answer = e.a; q.explanation = e.ex; return true;
-  });
-  const cat = blankCat(n), have = new Set(data.questions.filter(q=>q.type==='memo').map(q=>q.part+'||'+q.question));
-  exp.forEach((e,k)=>{
-    if(seen.has(e.key) || have.has(cat+'||'+e.q)) return;
-    have.add(cat+'||'+e.q);
-    data.questions.push({ id:'m_'+Date.now()+'_'+k+'_'+Math.floor(Math.random()*10000), type:'memo', part:cat, question:e.q, choices:null, answer:e.a, explanation:e.ex,
-      box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr(), src:'blank', srcNote:n.id, bkey:e.key });
-    added++;
-  });
-  return added;
-}
 function renderBlankStudy(){
   const area = document.getElementById('blank-study-area'); if(!area) return;
   const sets = [];
-  let mig = 0;  // 예전에 저장한 노트의 빈칸도 복습 항목으로 한 번 연결
-  (data.notes||[]).forEach(n=>{
-    if(blankItemsOf(n).length && !data.questions.some(q=>q.src==='blank' && q.srcNote===n.id)) mig += blankReconcileNote(n);
-  });
-  if(mig){ saveData().then(()=>{ try{ renderStatStrip(); }catch(e){} }); }
   (data.notes||[]).forEach(n=>{
     const trees = (n.att||[]).filter(a=>a.mm && mmHasBlank(a.mm)).map(a=>({ tree:a.mm, ar:a.ar }));
     const nm = trees.reduce((s,t)=>s+mmBlankCount(t.tree),0);
@@ -5668,7 +5513,7 @@ async function renderMindmapPreview(title, tree){
       <div style="border:1px solid var(--line);background:#fff;overflow:auto;max-height:60vh;"><img src="${url}" alt="마인드맵 미리보기" style="display:block;width:100%;"></div>
       <div class="hint">저장한 뒤 노트에서 ✎ 편집으로 칸을 고치거나 빈칸을 바꿀 수 있어요.</div>
     </div>
-    <div class="hint" style="margin:10px 0;">저장하면 빈칸이 오늘의 복습에 자동으로 나와요.</div>
+    <div class="hint" style="margin:10px 0;">저장하면 복습 탭의 빈칸 학습에서 볼 수 있어요.</div>
     <div class="btn-row"><button class="btn" id="mp-save-btn">요점정리로 저장</button></div>
   </div>`;
   const cats = getNoteCategories();
@@ -5689,10 +5534,9 @@ async function renderMindmapPreview(title, tree){
       part: category, title: t, content: '', createdAt: todayStr(),
       strokes: [], att: [{ id, ar: out.ar, mm: mmClone(tree) }], freeH: 0.3, drawing: '', drawingW: 0, drawingH: 0
     });
-    const noteObj = data.notes[data.notes.length-1];
-    const added = blankReconcileNote(noteObj);
+    const nb = mmBlankCount(tree);
     await saveData();
-    showToast(added ? `마인드맵 노트와 빈칸 ${added}개를 저장했어요 (오늘의 복습에 나와요)` : '마인드맵 노트로 저장했어요');
+    showToast(nb ? `마인드맵 노트와 빈칸 ${nb}개를 저장했어요 (복습 탭의 빈칸 학습에서 볼 수 있어요)` : '마인드맵 노트로 저장했어요');
     area.innerHTML = '';
     document.getElementById('scan-status').textContent = '';
     resetScan();
@@ -6395,6 +6239,25 @@ function renderSubjectList(){
   });
 }
 
+/* 예전에 마인드맵·글 빈칸에서 자동으로 만들어진 복습 문제(src:'blank')는 빈칸 학습으로만 보도록 정리한다.
+   지우기 전에 자동 백업("빈칸 복습 문제 정리 전")을 만들고, 백업이 확인될 때만 지운다. */
+async function purgeBlankQuestions(){
+  try{
+    if(!allSubjects || !Object.keys(allSubjects).length) return;
+    const subs = Object.keys(allSubjects).map(k=>({ k, d:(k===currentSubject ? data : allSubjects[k]) }));
+    const count = subs.reduce((a,x)=>a+((x.d && x.d.questions)||[]).filter(q=>q.src==='blank').length, 0);
+    if(!count) return;
+    const LABEL = '빈칸 복습 문제 정리 전';
+    await snapshotNow(LABEL, false);
+    const list = await SnapDB.all();
+    if(!list || !list.some(x=>x.label===LABEL && Date.now()-x.at < 120000)) return;   // 백업이 안 만들어졌으면 건드리지 않음
+    subs.forEach(x=>{ if(x.d && x.d.questions) x.d.questions = x.d.questions.filter(q=>q.src!=='blank'); });
+    await saveData();
+    try{ renderStatStrip(); renderCatSummary(); startSession(); }catch(e){ console.error(e); }
+    showToast(`마인드맵·빈칸 복습 문제 ${count}개를 정리했어요. 빈칸은 복습 탭의 빈칸 학습에서 봐요`);
+  }catch(e){ console.error('purgeBlank', e); }
+}
+
 function selectSubject(name){
   currentSubject = name;
   if(!allSubjects[name]){ allSubjects[name] = emptySubjectData(); }
@@ -6423,6 +6286,7 @@ function selectSubject(name){
   renderSettingsPanel();
   populateCategoryOptions();
   setInputType('quiz');
+  purgeBlankQuestions();
   persistBlobRaw();   // 과목을 고른 것만으로는 동기화 대상 변경이 아니므로 이 기기에만 저장
   try{ prefsUi(); }catch(e){}
   setTimeout(()=>{ try{ sharedIntake(); linkIntake(); }catch(e){ console.error(e); } }, 300);
