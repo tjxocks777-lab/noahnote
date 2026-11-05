@@ -1194,7 +1194,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-J</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-K</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1207,7 +1207,7 @@
 
     <div class="settings-block" id="sync-block">
       <h3>기기 간 자동 동기화</h3>
-      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력해 두면 공부한 내용이 자동으로 서로 맞춰져요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(workers.dev)로 열었을 때만 동작해요.</p>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">폰과 PC에서 같은 암호를 입력해 두면 공부한 내용이 자동으로 서로 맞춰져요. 두 기기에서 따로 바꿔도 덮어쓰지 않고 합쳐져요. 암호는 남이 알면 안 되니 길고 나만 아는 걸로 정하세요 (8자 이상). 인터넷 주소(workers.dev)로 열었을 때만 동작해요.</p>
       <input type="password" id="sync-pass" placeholder="동기화 암호 (8자 이상)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--line,#ccd);border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;">
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;" id="sync-last"></p>
       <div class="btn-row" style="flex-wrap:wrap;gap:8px;">
@@ -1590,7 +1590,25 @@ const MainDB = (()=>{
       }catch(e){ r(null); }
     });
   }
-  return { put, get };
+  async function putKey(key, val){
+    const db = await open(); if(!db) return false;
+    return new Promise(r=>{
+      try{
+        const tx = db.transaction('s','readwrite'); tx.objectStore('s').put(val,key);
+        tx.oncomplete = ()=>r(true); tx.onerror = tx.onabort = ()=>r(false);
+      }catch(e){ r(false); }
+    });
+  }
+  async function getKey(key){
+    const db = await open(); if(!db) return null;
+    return new Promise(r=>{
+      try{
+        const rq = db.transaction('s','readonly').objectStore('s').get(key);
+        rq.onsuccess = ()=>r(rq.result||null); rq.onerror = ()=>r(null);
+      }catch(e){ r(null); }
+    });
+  }
+  return { put, get, putKey, getKey };
 })();
 
 function applyParsed(parsed){
@@ -4351,11 +4369,13 @@ async function finishGrading(q, isCorrect){
 
   if(isCorrect){
     session.correctCount++;
+    q.lastReviewed = Date.now();
     q.correctCount = (q.correctCount||0) + 1;
     q.box = q.correctCount>=MASTER_AT ? 2 : 1;
     if(q.correctCount >= MASTER_AT) q.mastered = true;
     q.nextReviewDate = addDays(todayStr(), intervalFor(q.correctCount));
   } else {
+    q.lastReviewed = Date.now();
     q.correctCount = 0;
     q.mastered = false;
     q.box = 0;
@@ -4949,6 +4969,17 @@ const SnapDB = (()=>{
   const tx = async (mode, fn)=>{ const db = await open(); if(!db) return null; return new Promise(r=>{ try{ const t = db.transaction('s',mode), st = t.objectStore('s'); const rq = fn(st); t.oncomplete = ()=>r(rq ? rq.result : true); t.onerror = t.onabort = ()=>r(null); }catch(e){ r(null); } }); };
   return { put:rec=>tx('readwrite',st=>st.put(rec)), all:()=>tx('readonly',st=>st.getAll()).then(a=>(a||[]).sort((x,y)=>y.at-x.at)), del:id=>tx('readwrite',st=>st.delete(id)), get:id=>tx('readonly',st=>st.get(id)) };
 })();
+function allSubjectsCount(subj){
+  const o = Object.values(subj||{});
+  return { q:o.reduce((a,x)=>a+(x.questions||[]).length,0), n:o.reduce((a,x)=>a+(x.notes||[]).length,0) };
+}
+async function snapPutRaw(label, blob, cnt){
+  if(!cnt.q && !cnt.n) return;
+  await SnapDB.put({ id:String(Date.now()), at:Date.now(), label, auto:false, q:cnt.q, n:cnt.n, blob });
+  const all = await SnapDB.all();
+  const drop = [...all.filter(x=>x.auto).slice(8), ...all.filter(x=>!x.auto).slice(6)];
+  for(const d of drop) await SnapDB.del(d.id);
+}
 async function snapshotNow(label, auto){
   try{
     if(loadFailed || !allSubjects || !Object.keys(allSubjects).length) return;
@@ -6441,14 +6472,17 @@ function afterRestore(){
   renderSubjectList();
   showToast(ok ? '복구했어요. 과목을 선택하세요' : '복구는 됐지만 이 화면에선 저장이 안 돼요. 사파리로 열어 다시 복구해주세요');
 }
-/* ---------- 기기 간 자동 동기화 (서버: Cloudflare KV) ---------- */
-const SYNC_SIG_KEY='noah-note-sync-sig';
+/* ---------- 기기 간 자동 동기화 (서버: Cloudflare KV) ----------
+   서버에는 '가장 최근에 올린 한 벌'만 있어요. 각 기기는 올리기 전에 서버 내용을 먼저 받아서 내 변경과 '합친' 뒤에 올려요(덮어쓰기 X).
+   합칠 때는 '마지막으로 서버와 맞췄던 내용(기준본)'과 비교해서 어느 쪽이 무엇을 바꿨는지·지웠는지 따져요.
+   서버는 '내가 본 버전 그대로일 때만' 저장을 받아주고(expect), 그 사이 다른 기기가 올렸으면 거절해서 다시 합치게 해요. */
+const SYNC_SIG_KEY='noah-note-sync-sig', SYNC_LIN_KEY='noah-note-sync-lin', SYNC_BC_KEY='noah-note-sync-bc';
 const SYNC_PASS_KEY='noah-note-sync-pass', SYNC_BASE_KEY='noah-note-sync-base', SYNC_DIRTY_KEY='noah-note-sync-dirty', SYNC_ATT_KEY='noah-note-sync-atts', SYNC_META='noah-note-sync-last';
 const syncPassEl = document.getElementById('sync-pass');
 const lsGet = k=>{ try{ return localStorage.getItem(k); }catch(_){ return null; } };
 const lsSet = (k,v)=>{ try{ if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(_){} };
 syncPassEl.value = lsGet(SYNC_PASS_KEY) || '';
-let syncBusy=false, syncApplying=false, syncTimer=null, syncKeyCache=null;
+let syncBusy=false, syncApplying=false, syncTimer=null, syncKeyCache=null, syncRetryTimer=null;
 function syncHostOk(){ return /^https?:$/.test(location.protocol) && /(^|\.)(workers\.dev|pages\.dev|netlify\.app|vercel\.app)$|^localhost$/.test(location.hostname); }
 function syncEnabled(){ return !!lsGet(SYNC_PASS_KEY) && syncHostOk(); }
 function syncStatus(msg){ lsSet(SYNC_META, msg); const el=document.getElementById('sync-last'); if(el) el.textContent = msg||''; }
@@ -6466,22 +6500,29 @@ function syncMarkDirty(){
   clearTimeout(syncTimer);
   syncTimer = setTimeout(()=>syncRun(), 5000);
 }
-/* 내용이 실제로 바뀌었는지 판별하는 지문 (마지막으로 서버와 맞춘 내용과 같으면 올리지 않음) */
-function syncSig(){
-  const s = JSON.stringify(allSubjects||{}); let h1 = 0xdeadbeef ^ s.length, h2 = 0x41c6ce57 ^ s.length;
+/* 내용 지문: 마지막으로 서버와 맞춘 내용과 같은지 판별 (같으면 올릴 게 없음) */
+function syncSigOfStr(s){
+  let h1 = 0xdeadbeef ^ s.length, h2 = 0x41c6ce57 ^ s.length;
   for(let i=0;i<s.length;i++){ const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
   h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
   h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
   return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(36) + ':' + s.length;
 }
+function syncSigOf(obj){ return syncSigOfStr(JSON.stringify(obj||{})); }
+function syncSig(){ return syncSigOf(allSubjects); }
+function syncIsDirty(){ return syncSig() !== lsGet(SYNC_SIG_KEY); }
+function syncLineage(){ try{ const a = JSON.parse(lsGet(SYNC_LIN_KEY)||'[]'); return Array.isArray(a) ? a : []; }catch(_){ return []; } }
 /* 노트·마인드맵 편집 중이거나 학습 화면이 떠 있으면 가져온 내용으로 바꾸지 않고 잠시 미룸 */
 function syncUiBusy(){
   return ['note-editor','mm-editor','mm-study','cz','aipanel'].some(id=>{ const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none'; });
 }
-let syncRetryTimer = null;
 /* 가져온 내용을 지금 보고 있는 과목·탭 화면에 그대로 반영 (과목 선택 화면으로 돌려보내지 않음) */
 function syncRefreshInPlace(prev, keepId){
   if(!prev || !allSubjects[prev]){
+    if(prev){   // 보던 과목이 다른 기기에서 지워짐 → 옛 데이터가 되살아나지 않게 선택 화면으로
+      currentSubject = null;
+      try{ document.getElementById('app-shell').style.display='none'; document.getElementById('subject-picker').style.display='block'; }catch(_){}
+    }
     try{ renderSubjectList(); }catch(_){}
     return;
   }
@@ -6508,6 +6549,131 @@ function syncRefreshInPlace(prev, keepId){
   }catch(_){}
 }
 function syncHasContent(){ return Object.values(allSubjects||{}).some(x=>((x.questions||[]).length+(x.notes||[]).length+(x.drafts||[]).length)>0); }
+
+/* ── 합치기 (순수 함수: 넘겨받은 객체를 고치지 않음) ── L: 이 기기, R: 서버, B: 마지막으로 맞춘 내용(없으면 null) ── */
+const SYNC_PROG = ['box','correctCount','mastered','nextReviewDate','lastWrong','retryOkOn','wrongCount','lastReviewed'];
+const sjs = v => v===undefined ? undefined : JSON.stringify(v);
+function syncProgWinner(l, r){   // 같은 문제를 양쪽에서 풀었을 때, 더 나중에 푼 쪽을 따름
+  const a = l.lastReviewed||0, b = r.lastReviewed||0;
+  if(a!==b) return a>b ? l : r;
+  const da = l.nextReviewDate||'', db = r.nextReviewDate||'';
+  if(da!==db) return da>db ? l : r;
+  return (l.wrongCount||0) > (r.wrongCount||0) ? l : r;
+}
+function syncMergeItem(l, r, b, kind){
+  if(!l || typeof l!=='object' || !r || typeof r!=='object') return r;
+  const sl = JSON.stringify(l), sr = JSON.stringify(r);
+  if(sl===sr) return r;
+  if(b){ const sb = JSON.stringify(b); if(sl===sb) return r; if(sr===sb) return l; }   // 한쪽만 바뀜
+  const win = kind==='q' ? syncProgWinner(l, r) : r;
+  const out = {}; let progConflict = false;
+  const keys = Object.keys(r); for(const k of Object.keys(l)) if(!(k in r)) keys.push(k);
+  for(const k of keys){
+    const hl = k in l, hr = k in r;
+    const a = hl ? JSON.stringify(l[k]) : undefined, c = hr ? JSON.stringify(r[k]) : undefined;
+    if(a===c){ if(hr) out[k] = r[k]; continue; }
+    let take = null;
+    if(b){ const bb = (k in b) ? JSON.stringify(b[k]) : undefined; if(a===bb) take = 'r'; else if(c===bb) take = 'l'; }
+    if(!take){
+      if(kind==='q' && SYNC_PROG.includes(k)){ take = (win===l) ? 'l' : 'r'; progConflict = true; }
+      else take = 'r';
+    }
+    const src = take==='l' ? l : r;
+    if(k in src) out[k] = src[k];
+  }
+  if(progConflict){   // 복습 기록은 한 묶음으로 같은 쪽 것을 씀 (틀린 횟수는 큰 쪽)
+    for(const k of SYNC_PROG){ if(k in win) out[k] = win[k]; else delete out[k]; }
+    const w = Math.max(l.wrongCount||0, r.wrongCount||0); if(w) out.wrongCount = w;
+  }
+  return out;
+}
+function syncMergeArr(L, R, B, idOf, kind){
+  L = Array.isArray(L) ? L : []; R = Array.isArray(R) ? R : [];
+  const key = x => { const i = idOf(x); return (i===undefined || i===null) ? 'j:'+JSON.stringify(x) : 'i:'+i; };
+  const mL = new Map(); L.forEach(x=>mL.set(key(x), x));
+  const sR = new Set(R.map(key));
+  const mB = Array.isArray(B) ? new Map(B.map(x=>[key(x), x])) : null;
+  const out = [];
+  for(const x of R){
+    const id = key(x), l = mL.get(id);
+    if(l!==undefined){ out.push(syncMergeItem(l, x, mB ? mB.get(id) : null, kind)); continue; }
+    const b = mB ? mB.get(id) : undefined;
+    if(b!==undefined && JSON.stringify(b)===JSON.stringify(x)) continue;   // 이 기기에서 지운 것(서버는 그대로였음)
+    out.push(x);
+  }
+  for(const x of L){
+    const id = key(x); if(sR.has(id)) continue;
+    const b = mB ? mB.get(id) : undefined;
+    if(b!==undefined && JSON.stringify(b)===JSON.stringify(x)) continue;   // 서버에서 지운 것(이 기기는 그대로였음)
+    out.push(x);
+  }
+  return out;
+}
+function syncMergeHist(L, R, B){   // 날짜·분야별 푼 횟수: 양쪽에서 각각 푼 만큼을 더함
+  L = L||{}; R = R||{}; B = B||null;
+  const out = {};
+  const days = Object.keys(R); for(const d of Object.keys(L)) if(!(d in R)) days.push(d);
+  for(const d of days){
+    const l = L[d], r = R[d], b = B ? B[d] : undefined;
+    if(!l){ out[d] = r; continue; } if(!r){ out[d] = l; continue; }
+    const o = {}; const cats = Object.keys(r); for(const c of Object.keys(l)) if(!(c in r)) cats.push(c);
+    for(const c of cats){
+      const el = l[c], er = r[c], eb = b ? b[c] : undefined;
+      if(!el){ o[c] = er; continue; } if(!er){ o[c] = el; continue; }
+      if(sjs(el)===sjs(er)){ o[c] = er; continue; }
+      if(eb){ if(sjs(el)===sjs(eb)){ o[c] = er; continue; } if(sjs(er)===sjs(eb)){ o[c] = el; continue; } }
+      o[c] = eb ? { done: Math.max(0, el.done+er.done-eb.done), correct: Math.max(0, el.correct+er.correct-eb.correct) }
+                : { done: Math.max(el.done, er.done), correct: Math.max(el.correct, er.correct) };
+    }
+    out[d] = o;
+  }
+  return out;
+}
+function syncMergeToday(l, r, b){
+  if(!l) return r; if(!r) return l;
+  if(l.date!==r.date) return l.date>r.date ? l : r;
+  if(sjs(l)===sjs(r)) return r;
+  if(b && b.date===l.date){
+    if(sjs(l)===sjs(b)) return r; if(sjs(r)===sjs(b)) return l;
+    return { date:l.date, done:Math.max(0, l.done+r.done-b.done), correct:Math.max(0, l.correct+r.correct-b.correct) };
+  }
+  return { date:l.date, done:Math.max(l.done, r.done), correct:Math.max(l.correct, r.correct) };
+}
+function syncMergeSubject(L, R, B){
+  const out = {};
+  const keys = Object.keys(R); for(const k of Object.keys(L)) if(!(k in R)) keys.push(k);
+  for(const k of keys){
+    const hl = k in L, hr = k in R, b = B ? B[k] : undefined;
+    if(!hl){ if(B && (k in B) && sjs(B[k])===sjs(R[k])) continue; out[k] = R[k]; continue; }
+    if(!hr){ if(B && (k in B) && sjs(B[k])===sjs(L[k])) continue; out[k] = L[k]; continue; }
+    const l = L[k], r = R[k];
+    if(k==='questions') out[k] = syncMergeArr(l, r, B ? (b||[]) : null, x=>x&&x.id, 'q');
+    else if(k==='notes' || k==='drafts') out[k] = syncMergeArr(l, r, B ? (b||[]) : null, x=>x&&x.id, 'n');
+    else if(k==='trash') out[k] = syncMergeArr(l, r, B ? (b||[]) : null, x=>(x&&x.item&&x.item.id!==undefined) ? x.kind+':'+x.item.id : undefined, 't');
+    else if(k==='history') out[k] = syncMergeHist(l, r, b);
+    else if(k==='todayProgress') out[k] = syncMergeToday(l, r, b);
+    else if(l && r && typeof l==='object' && typeof r==='object' && !Array.isArray(l) && !Array.isArray(r)) out[k] = syncMergeItem(l, r, (b && typeof b==='object') ? b : null, 'o');
+    else{
+      const sl = sjs(l), sr = sjs(r);
+      out[k] = (sl===sr) ? r : (B && sjs(b)===sl) ? r : (B && sjs(b)===sr) ? l : r;
+    }
+  }
+  return out;
+}
+function syncMergeAll(L, R, B){
+  L = L||{}; R = R||{};
+  const out = {};
+  const names = Object.keys(R); for(const n of Object.keys(L)) if(!(n in R)) names.push(n);
+  for(const n of names){
+    const l = L[n], r = R[n], b = B ? B[n] : undefined;
+    if(l && r){ out[n] = syncMergeSubject(l, r, b || null); continue; }
+    if(r){ if(b && sjs(b)===sjs(r)) continue; out[n] = r; continue; }      // 이 기기에서 지운 과목(서버는 그대로)
+    if(l){ if(b && sjs(b)===sjs(l)) continue; out[n] = l; }                // 서버에서 지운 과목(이 기기는 그대로)
+  }
+  return out;
+}
+
+/* ── 서버 통신 ── */
 async function syncMeta(k){
   const r = await fetch('/api/sync?k='+k+'&meta=1',{cache:'no-store'});
   if(r.status===404) return null;
@@ -6559,100 +6725,201 @@ async function syncPullAtts(k){
   }
   lsSet(SYNC_ATT_KEY, JSON.stringify([...done]));
 }
-async function syncPush(k){
-  await syncPushAtts(k);
-  const stamp = new Date().toISOString();
-  const body = await buildBackupJson(false, stamp);
-  if(body.length > 5600000) throw new Error('too large');
-  const r = await fetch('/api/sync?k='+k, {method:'PUT', headers:{'Content-Type':'application/json'}, body});
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  lsSet(SYNC_BASE_KEY, stamp); lsSet(SYNC_DIRTY_KEY, null); lsSet(SYNC_SIG_KEY, syncSig());
-  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
+/* 기준본: 마지막으로 서버와 같아졌던 내용(합칠 때 '누가 뭘 바꿨나'를 알아내는 기준). 용량이 커서 IndexedDB 에 둠 */
+async function syncBaseSave(stamp, text){
+  try{ if(await MainDB.putKey('syncbase', {stamp, text})) lsSet(SYNC_BC_KEY, stamp); }catch(_){}
 }
-async function syncPull(k, quiet){
-  const prevSubject = currentSubject, keepId = (session.queue[session.index] || {}).id;
+async function syncBaseLoad(){ try{ return await MainDB.getKey('syncbase'); }catch(_){ return null; } }
+function syncBuildBody(stamp, lineage){
+  if(currentSubject) allSubjects[currentSubject] = data;
+  const subj = JSON.stringify(allSubjects||{});
+  // 본문과 지문을 같은 순간의 내용으로 만들어, 올리는 동안 바뀐 내용은 다음 번에 따로 올라가게 함
+  const body = '{"app":"noah-note","version":1,"savedAt":'+JSON.stringify(stamp)+',"subjects":'+subj+',"lastSubject":'+JSON.stringify(lastSubject||null)+',"lineage":'+JSON.stringify(lineage)+'}';
+  return { body, sig: syncSigOfStr(subj) };
+}
+/* expect: 서버가 지금 이 버전일 때만 저장 ('' = 서버가 비어 있을 때만). 아니면 'conflict' */
+async function syncPush(k, expect){
+  await syncPushAtts(k);
+  const stamp = new Date().toISOString()+'#'+Math.random().toString(36).slice(2,6);
+  let lin = syncLineage(); if(expect && !lin.includes(expect)) lin = lin.concat(expect);
+  lin = lin.concat(stamp).slice(-40);
+  const {body, sig} = syncBuildBody(stamp, lin);
+  if(body.length > 5600000) throw new Error('too large');
+  const r = await fetch('/api/sync?k='+k+((expect===null||expect===undefined) ? '' : '&expect='+encodeURIComponent(expect)), {method:'PUT', headers:{'Content-Type':'application/json'}, body});
+  if(r.status===409){ let cur = null; try{ cur = (await r.json()).savedAt; }catch(_){} return { cur }; }   // 그 사이 서버가 바뀜(cur = 서버의 현재 버전)
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  lsSet(SYNC_BASE_KEY, stamp); lsSet(SYNC_LIN_KEY, JSON.stringify(lin)); lsSet(SYNC_SIG_KEY, sig);
+  await syncBaseSave(stamp, body);
+  if(syncSig()!==sig){ lsSet(SYNC_DIRTY_KEY,'1'); clearTimeout(syncTimer); syncTimer = setTimeout(()=>syncRun(), 3000); }   // 올리는 동안 바뀐 게 있으면 곧 다시 올림
+  else lsSet(SYNC_DIRTY_KEY, null);
+  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
+  return 'ok';
+}
+/* 올리기. 서버가 내가 거쳐 온 옛 버전(반영 지연·되돌려진 경우)이면 그 위에 올리고, 모르는 새 버전이면 'conflict' → 합친 뒤 다시 */
+async function syncPushSmart(k, expect){
+  for(let i=0;i<2;i++){
+    const r = await syncPush(k, expect);
+    if(r==='ok') return 'ok';
+    if(typeof r.cur==='string' && syncLineage().includes(r.cur)){ expect = r.cur; continue; }
+    return 'conflict';
+  }
+  return 'conflict';
+}
+/* 서버 내용을 받아 이 기기 내용과 합침. 반환: 'merged' | 'busy' | 'stale' | 'failed' */
+async function syncMergeIn(k, manual){
+  const prevSubject = currentSubject, keepId = (((session&&session.queue)||[])[session.index] || {}).id;
   const r = await fetch('/api/sync?k='+k,{cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
-  const obj = await r.json();
-  if(!obj || !obj.subjects) throw new Error('bad data');
-  lsSet(SYNC_BASE_KEY, obj.savedAt||''); // 복구 중 dirty가 켜지지 않게 먼저 설정
-  syncApplying = true;
-  try{
-    // 덮어쓰기 직전 내 데이터를 한 번 더 남겨둠
-    try{ const cur = localStorage.getItem(LOCAL_KEY); if(cur && cur.length>50) localStorage.setItem(LOCAL_KEY+'.syncbak', cur); }catch(_){}
-    await restoreFromObject(obj, {});
-    await syncPullAtts(k);
-  } finally { syncApplying = false; }
-  lsSet(SYNC_DIRTY_KEY, null);
-  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
-  if(quiet){
-    syncRefreshInPlace(prevSubject, keepId);
-    lsSet(SYNC_SIG_KEY, syncSig());
-    showToast('다른 기기의 최신 내용을 가져왔어요');
-  } else {
-    afterRestore();
-    lsSet(SYNC_SIG_KEY, syncSig());
+  const text = await r.text();
+  const R = JSON.parse(text);
+  if(!R || !R.subjects || typeof R.subjects!=='object') throw new Error('bad data');
+  const rStamp = R.savedAt||'';
+  const rLin = (Array.isArray(R.lineage) && R.lineage.length) ? R.lineage : [rStamp];
+  if(rStamp && syncLineage().includes(rStamp)) return 'stale';   // 이미 거쳐 온 옛 버전(서버 반영 지연) → 건드리지 않음
+  let B = null;
+  const baseStamp = lsGet(SYNC_BASE_KEY);
+  if(baseStamp && (rLin.includes(baseStamp) || rStamp===baseStamp)){   // 서버 내용이 내 기준본에서 이어진 것일 때만 기준본 사용
+    const bc = await syncBaseLoad();
+    if(bc && bc.stamp===baseStamp){ try{ const bo = JSON.parse(bc.text); if(bo && bo.subjects && typeof bo.subjects==='object') B = bo.subjects; }catch(_){} }
   }
+  if(syncUiBusy() && !manual) return 'busy';
+  // ─ 여기부터 await 없이 한 번에: 합치기 → 화면 반영 (그 사이에 내용이 바뀌어 덮어써지는 일이 없게) ─
+  if(currentSubject) allSubjects[currentSubject] = data;
+  const RS = R.subjects;
+  Object.keys(RS).forEach(n=>{ const s = RS[n]; if(s && typeof s==='object'){ s.questions = s.questions||[]; s.drafts = s.drafts||[]; s.notes = s.notes||[]; } });
+  const sigL = syncSig(), sigR = syncSigOf(RS);
+  const wasDirty = sigL !== lsGet(SYNC_SIG_KEY);
+  const hasLocal = syncHasContent();
+  const M = hasLocal ? syncMergeAll(allSubjects, RS, B) : RS;
+  const sigM = (M===RS) ? sigR : syncSigOf(M);
+  const changed = sigM !== sigL;
+  let oldBlob = null;
+  if(changed){
+    if(hasLocal) oldBlob = JSON.stringify({ app:'noah-note', version:1, savedAt:new Date().toISOString(), subjects:allSubjects, lastSubject });
+    allSubjects = M;
+    if(!(lastSubject && allSubjects[lastSubject])) lastSubject = (R.lastSubject && allSubjects[R.lastSubject]) ? R.lastSubject : (Object.keys(allSubjects)[0] || null);
+    loadFailed = false;
+    try{ syncRefreshInPlace(prevSubject, keepId); }catch(e){ console.error(e); }
+  }
+  // ─ 이후는 await 가능 ─
+  let saved = true;
+  if(changed){
+    syncApplying = true;
+    try{ saved = (await persistBlobRaw()) !== false; } finally { syncApplying = false; }
+    if(oldBlob){ try{ await snapPutRaw('동기화 전', oldBlob, allSubjectsCount(JSON.parse(oldBlob).subjects)); }catch(_){} }
+  }
+  if(!saved) return 'failed';   // 저장이 안 됐으면 '맞췄다'고 기록하지 않음 → 다음에 다시 합침
+  lsSet(SYNC_BASE_KEY, rStamp); lsSet(SYNC_LIN_KEY, JSON.stringify(rLin.slice(-40))); lsSet(SYNC_SIG_KEY, sigR);
+  await syncBaseSave(rStamp, text);
+  lsSet(SYNC_DIRTY_KEY, sigM!==sigR ? '1' : null);
+  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
+  if(changed) showToast(wasDirty && hasLocal ? '두 기기의 변경을 합쳤어요' : '다른 기기의 최신 내용을 가져왔어요');
+  return 'merged';
 }
-function syncConflict(k){
-  return new Promise(res=>{
-    showConfirmModal('이 기기와 다른 기기에서 각각 내용이 바뀌었어요. 어느 쪽을 남길까요?',
-      async ()=>{ try{ await syncPush(k); showToast('이 기기 내용으로 맞췄어요'); }catch(e){ syncStatus('동기화 실패'); } res(); },
-      async ()=>{ try{ await syncPull(k, true); }catch(e){ syncStatus('동기화 실패'); } res(); },
-      '이 기기 내용 유지', '서버 내용으로 교체');
-  });
+/* 기준본이 없을 때(업데이트 직후 등): 서버와 같은 내용이라고 확실한 순간에 기준본을 만들어 둠 */
+async function syncEnsureBase(k, base, dirty){
+  if(!base || lsGet(SYNC_BC_KEY)===base) return;
+  try{
+    if(!dirty){ await syncBaseSave(base, JSON.stringify({ subjects: allSubjects })); return; }
+    const r = await fetch('/api/sync?k='+k,{cache:'no-store'}); if(!r.ok) return;
+    const text = await r.text(); const o = JSON.parse(text);
+    if(o && o.savedAt===base && o.subjects) await syncBaseSave(base, text);
+  }catch(_){}
 }
 async function syncRun(manual){
   if(syncBusy) return;
   if(!syncEnabled()){ if(manual) showToast('암호를 입력하고 앱 인터넷 주소(workers.dev)에서 켜세요'); return; }
   if(!dataReady || loadFailed) return;
   syncBusy = true;
+  const later = ms => { clearTimeout(syncRetryTimer); syncRetryTimer = setTimeout(()=>syncRun(), ms); };
   try{
-    if(currentSubject) allSubjects[currentSubject] = data;
     const k = await syncKey();
-    const meta = await syncMeta(k);
-    const base = lsGet(SYNC_BASE_KEY);
-    let dirty = lsGet(SYNC_DIRTY_KEY)==='1';
-    if(dirty && syncSig()===lsGet(SYNC_SIG_KEY)){ dirty = false; lsSet(SYNC_DIRTY_KEY, null); }   // 실제로 바뀐 게 없으면 변경 없음으로 처리
-    if(!meta){
-      if(syncHasContent()) await syncPush(k); else syncStatus('서버가 비어 있어요');
-    }else if(base && meta.savedAt===base){
-      if(dirty) await syncPush(k); else if(manual){ syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR')); showToast('이미 최신이에요'); }
-    }else if(syncUiBusy() && !manual){
-      clearTimeout(syncRetryTimer); syncRetryTimer = setTimeout(()=>syncRun(), 20000);   // 편집 중에는 화면을 바꾸지 않고 잠시 뒤 다시 확인
-    }else{
-      if(!dirty || !syncHasContent()) await syncPull(k, true);
-      else await syncConflict(k);
+    let settled = false, forceMerge = false;
+    for(let round=0; round<5 && !settled; round++){
+      if(currentSubject) allSubjects[currentSubject] = data;
+      const merge = async ()=>{
+        const res = await syncMergeIn(k, manual);
+        if(res==='busy'){ later(20000); settled = true; }
+        else if(res==='stale'){ later(25000); settled = true; }
+        else if(res==='failed'){ syncStatus('동기화 실패 — 저장 공간을 확인하세요'); settled = true; }
+        // 'merged' → 다음 바퀴에서 합친 결과를 올림
+      };
+      if(forceMerge){ forceMerge = false; await merge(); continue; }   // 올리려는데 서버가 바뀌어 있었음 → 서버 내용을 받아 합침
+      const meta = await syncMeta(k);
+      const base = lsGet(SYNC_BASE_KEY);
+      const dirty = syncIsDirty();
+      const push = async expect => { if(await syncPushSmart(k, expect)==='ok') settled = true; else forceMerge = true; };
+      if(!meta){
+        if(syncHasContent()) await push('');
+        else{ syncStatus('서버가 비어 있어요'); settled = true; }
+      }else if(base && meta.savedAt===base){
+        await syncEnsureBase(k, base, dirty);
+        if(dirty) await push(base);
+        else{ settled = true; if(manual){ syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR')); showToast('이미 최신이에요'); } }
+      }else if(base && syncLineage().includes(meta.savedAt)){
+        // 서버가 오히려 내가 거쳐 온 옛 버전으로 보임(서버 반영 지연): 내용을 가져오지 않음. 내 변경이 있으면 올려 보고, 서버가 정말 새 버전이면 합침
+        if(dirty) await push(base); else settled = true;
+      }else if(syncUiBusy() && !manual){
+        later(20000); settled = true;   // 편집 중에는 화면을 바꾸지 않고 잠시 뒤 다시 확인
+      }else{
+        await merge();
+      }
     }
+    if(!settled){ later(15000); }   // 그 사이 다른 기기가 계속 올림 → 잠시 뒤 다시
     // 사진은 본문과 별개로 항상 맞춰둠 (못 올린/못 받은 사진 보충)
     try{ await syncPushAtts(k); await syncPullAtts(k); }catch(_){}
   }catch(e){ console.error(e); syncStatus('동기화 실패 — 인터넷이나 서버 설정을 확인하세요'); if(manual) showToast('동기화에 실패했어요'); }
   finally{ syncBusy = false; }
 }
+/* 설정의 '서버 → 이 기기': 서버 내용으로 이 기기를 통째로 교체 */
+async function syncForcePull(k){
+  const r = await fetch('/api/sync?k='+k,{cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const text = await r.text(); const obj = JSON.parse(text);
+  if(!obj || !obj.subjects) throw new Error('bad data');
+  syncApplying = true;
+  try{
+    try{ const cur = localStorage.getItem(LOCAL_KEY); if(cur && cur.length>50) localStorage.setItem(LOCAL_KEY+'.syncbak', cur); }catch(_){}
+    if(!(await restoreFromObject(obj, {})) || !restoreSaved) throw new Error('restore');
+    await syncPullAtts(k);
+  } finally { syncApplying = false; }
+  const rs = obj.savedAt||'';
+  lsSet(SYNC_BASE_KEY, rs); lsSet(SYNC_LIN_KEY, JSON.stringify((Array.isArray(obj.lineage)&&obj.lineage.length ? obj.lineage : [rs]).slice(-40)));
+  lsSet(SYNC_SIG_KEY, syncSig()); lsSet(SYNC_DIRTY_KEY, null);
+  await syncBaseSave(rs, text);
+  syncStatus('마지막 동기화: '+new Date().toLocaleString('ko-KR'));
+  afterRestore();
+}
 document.getElementById('sync-now-btn').addEventListener('click', async ()=>{
   const pw = (syncPassEl.value||'').trim();
   if(pw.length<8){ showToast('암호를 8자 이상 입력하세요'); return; }
   if(!syncHostOk()){ showToast('동기화는 앱 인터넷 주소(workers.dev)로 열었을 때만 돼요'); return; }
-  if(pw !== lsGet(SYNC_PASS_KEY)){ lsSet(SYNC_PASS_KEY, pw); lsSet(SYNC_BASE_KEY, null); syncKeyCache=null; }
+  if(pw !== lsGet(SYNC_PASS_KEY)){ lsSet(SYNC_PASS_KEY, pw); lsSet(SYNC_BASE_KEY, null); lsSet(SYNC_LIN_KEY, null); lsSet(SYNC_SIG_KEY, null); lsSet(SYNC_BC_KEY, null); syncKeyCache=null; }
   await syncRun(true);
 });
 document.getElementById('sync-off-btn').addEventListener('click', ()=>{
-  lsSet(SYNC_PASS_KEY, null); lsSet(SYNC_BASE_KEY, null); lsSet(SYNC_DIRTY_KEY, null); syncPassEl.value=''; syncKeyCache=null;
+  lsSet(SYNC_PASS_KEY, null); lsSet(SYNC_BASE_KEY, null); lsSet(SYNC_DIRTY_KEY, null); lsSet(SYNC_LIN_KEY, null); lsSet(SYNC_SIG_KEY, null); lsSet(SYNC_BC_KEY, null); syncPassEl.value=''; syncKeyCache=null;
   syncStatus('자동 동기화를 껐어요'); showToast('동기화를 껐어요');
 });
 document.getElementById('sync-up-btn').addEventListener('click', async ()=>{
   if(!syncEnabled()){ showToast('먼저 암호를 입력하고 "켜기"를 누르세요'); return; }
   showConfirmModal('이 기기 내용으로 서버를 덮어쓸까요? 다른 기기의 변경은 사라져요.', async ()=>{
-    try{ if(currentSubject) allSubjects[currentSubject]=data; await syncPush(await syncKey()); showToast('서버에 덮어썼어요'); }catch(e){ showToast('실패했어요'); }
+    try{
+      const k = await syncKey(); const meta = await syncMeta(k);
+      if(await syncPushSmart(k, meta ? (meta.savedAt||'') : '')==='ok') showToast('서버에 덮어썼어요'); else showToast('그 사이 서버가 바뀌었어요. 다시 눌러주세요');
+    }catch(e){ showToast('실패했어요'); }
   });
 });
 document.getElementById('sync-down-btn').addEventListener('click', async ()=>{
   if(!syncEnabled()){ showToast('먼저 암호를 입력하고 "켜기"를 누르세요'); return; }
   showConfirmModal('서버 내용으로 이 기기를 덮어쓸까요? 이 기기에서 올리지 않은 변경은 사라져요.', async ()=>{
-    try{ await syncPull(await syncKey(), false); }catch(e){ showToast('실패했어요'); }
+    try{ await syncForcePull(await syncKey()); }catch(e){ showToast('실패했어요'); }
   });
 });
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') setTimeout(()=>syncRun(), 800); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') setTimeout(()=>syncRun(), 800);
+  else if(lsGet(SYNC_DIRTY_KEY)==='1'){ clearTimeout(syncTimer); syncRun(); }   // 앱을 떠나는 순간 아직 안 올린 변경이 있으면 바로 올림
+});
 window.addEventListener('online', ()=>syncRun());
 
 document.getElementById('backup-import-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());
