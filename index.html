@@ -794,6 +794,9 @@
   .mode-row .cat-pick-btn>span:first-child,.mode-row #blank-study-area .bs-bar>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #cat-pick-panel,#bs-list{border:none;box-shadow:var(--sh-card);margin-top:8px;}
   #bs-list .bs-go{border-radius:var(--r-pill);border:none;padding:8px 16px;}
+  /* 빈칸 학습은 오른쪽, 카테고리는 왼쪽 */
+  .mode-row>.field{order:1;}
+  .mode-row>#blank-study-area{order:2;}
   .today-card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-card);padding:16px 18px 6px;margin-bottom:16px;}
   .today-card:has(#quota-gauge:empty):has(#stat-strip:empty){display:none;}
   .today-card #quota-gauge{margin-bottom:10px;}
@@ -805,7 +808,6 @@
   .st-bars i{border-radius:6px 6px 2px 2px;}
 
   /* 설정 화면: 묶음 + 접기 */
-  .set-lead{font-size:12.5px;color:var(--ink-soft);margin:-4px 0 6px;line-height:1.6;}
   .set-group{font-family:var(--font-display);font-size:14px;color:var(--ink-soft);margin:22px 4px 8px;}
   #panel-settings .settings-block{margin-top:8px;padding:0;overflow:hidden;}
   #panel-settings .settings-block>h3{display:flex;align-items:center;gap:12px;margin:0;padding:15px 16px;cursor:pointer;-webkit-user-select:none;user-select:none;}
@@ -823,7 +825,6 @@
   .type-btn small{font-size:11px;font-weight:400;opacity:.65;}
   .scan-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
   .scan-btns .file-label{flex:1 1 130px;max-width:200px;margin:0;}
-  .scan-btns .file-label:first-child{background:var(--hl);border-color:var(--hl);color:var(--on-hl);}
   .scan-drop{padding:22px 16px;}
   .scan-run-row .btn{flex:1;}
   details.bulk-acc>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
@@ -834,7 +835,6 @@
   .scan-run-row{flex-wrap:nowrap;}
   .scan-run-row .btn{padding:12px 8px;font-size:13.5px;}
   html[data-theme="classic"] .type-btn.active,html[data-theme="classic"] .list-toggle-btn.active,html[data-theme="classic"] .pf-row button.on,html[data-theme="classic"] .wrong-filter button.active,html[data-theme="classic"] .ai-opt button.on,html[data-theme="classic"] .ne-tool.active{background:var(--ink);color:var(--on-ink);border-color:var(--ink);}
-  html[data-theme="classic"] .scan-btns .file-label:first-child{background:var(--card);color:var(--ink);border-color:var(--ink);}
   html[data-theme="classic"] .btn,html[data-theme="classic"] .type-btn,html[data-theme="classic"] .file-label{box-shadow:none;}
 
   /* 오늘 카드: 숫자 3칸 + 버튼 줄 */
@@ -848,6 +848,23 @@
   .ts-actions .stat-link{flex:1 1 auto;margin:0;padding:11px 14px;border:none;border-radius:var(--r-pill);background:var(--paper);color:var(--ink);font-size:13px;font-weight:500;text-decoration:none;text-align:center;cursor:pointer;}
   .ts-actions .stat-link b{font-weight:700;}
   .ts-actions .stat-link:hover{background:var(--hl-soft);color:var(--ink);}
+
+  /* 틀린 문제: 날짜별 묶음 */
+  .wq-lead{font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:-2px 2px 10px;}
+  .wq-lead b{color:var(--ink);}
+  details.wq-grp{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-card);margin-bottom:8px;overflow:hidden;}
+  details.wq-grp>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:13px 14px;}
+  details.wq-grp>summary::-webkit-details-marker{display:none;}
+  details.wq-grp>summary::before{content:'▸';color:var(--pencil);font-size:12px;transition:transform .15s ease;}
+  details.wq-grp[open]>summary::before{transform:rotate(90deg);}
+  .wq-d{font-family:var(--font-display);font-size:15px;color:var(--ink);}
+  .wq-d small{font-family:var(--font-body);font-size:12px;color:var(--pencil);margin-left:4px;}
+  .wq-n{font-size:12.5px;color:var(--ink-soft);}
+  .wq-retry{margin-left:auto;border:none;border-radius:var(--r-pill);background:var(--hl-soft);color:var(--ink);font:inherit;font-size:12.5px;font-weight:700;padding:8px 13px;cursor:pointer;}
+  .wq-retry:hover{background:var(--hl);color:var(--on-hl);}
+  details.wq-grp .row-actions button{white-space:nowrap;}
+  details.wq-grp td.mono{white-space:nowrap;}
+  details.wq-grp table.qlist{border:none;border-radius:0;box-shadow:none;border-top:1px solid var(--line);}
 </style>
 </head>
 <body>
@@ -972,10 +989,6 @@
         <label class="file-label" for="scan-cam">📸 카메라</label>
         <input type="file" id="scan-cam" accept="image/*" capture="environment" style="display:none;">
       </div>
-      <div class="hint scan-multi" style="margin-top:8px;">여러 장 한꺼번에 골라도 돼요</div>
-      <div class="hint" id="scan-hint-quiz" style="margin-top:10px;">문제집 한 페이지를 통째로 찍어도 돼요. 문제와 보기(A~D)만 읽어요. 정답·해설은 아래 오답노트에 직접 적어요.</div>
-      <div class="hint" id="scan-hint-note" style="display:none;margin-top:10px;">필기 페이지를 찍으면 핵심만 정리해서 저장해요. 「🧠 마인드맵으로 만들기」를 누르면 빈칸도 미리 정해줘요.</div>
-      <div class="hint" id="scan-hint-memo" style="display:none;margin-top:10px;">단어장 페이지를 찍으면 용어와 뜻을 뽑아줘요. 추가하기 전에 고칠 수 있어요.</div>
     </div>
     <div class="btn-row scan-run-row" style="margin-bottom:14px;">
       <button class="btn" id="scan-run-btn" disabled>인식하기</button>
@@ -985,18 +998,17 @@
     <div id="scan-results"></div>
     <div id="note-preview-area"></div>
 
+    <p class="section-title" style="margin-top:32px;">✍️ 직접 쓰기</p>
     <div id="notes-block">
-      <p class="section-title" id="notes-section-title" style="margin-top:32px;">오답노트</p>
+      <p class="section-title" id="notes-section-title" style="font-size:15px;margin:0 0 10px;">오답노트</p>
       <div class="btn-row" style="margin-bottom:16px;">
         <button class="btn outline" id="notes-add-blank-btn">+ 오답노트 추가</button>
       </div>
       <div id="notes-list"></div>
     </div>
 
-    <p class="section-title" style="margin-top:32px;">✍️ 직접 쓰기</p>
 
     <!-- QUIZ MANUAL FIELDS (only shown while editing an existing question) -->
-    <div class="hint" id="input-quiz-hint" style="margin-bottom:16px;">한 개씩은 위 오답노트의 '+ 오답노트 추가', 여러 개는 아래 붙여넣기로 넣어요.</div>
     <div id="input-quiz-fields" style="display:none;">
       <div class="form-block">
         <p class="section-title" id="add-title" style="font-size:15px;">문제 추가</p>
@@ -1110,7 +1122,6 @@
   <!-- OVERVIEW PANEL -->
   <section class="panel" id="panel-settings">
     <p class="section-title">설정</p>
-    <p class="set-lead">필요할 때만 열어서 쓰세요. 제목을 누르면 펼쳐져요.</p>
 
     <div class="settings-block">
       <h3>복습 주기 설정</h3>
@@ -1162,7 +1173,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-D</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-H</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -1212,16 +1223,6 @@
       <h3>휴지통</h3>
       <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">지운 노트와 문제가 30일 동안 여기에 있어요.</p>
       <div id="trash-list"></div>
-    </div>
-
-    <div class="settings-block" id="deck-block">
-      <h3>문제집 공유 링크</h3>
-      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px;">내가 만든 문제와 노트를 링크 하나로 친구에게 보낼 수 있어요. 받은 사람은 자기 앱에 추가해요. 문제·노트의 글만 전달되고, 학습 기록·사진·손글씨는 포함되지 않아요.</p>
-      <div class="field" style="margin-bottom:10px;"><label>공유할 분류</label><select id="deck-cat"></select></div>
-      <div class="field" style="margin-bottom:10px;"><label>문제집 이름</label><input type="text" id="deck-title" maxlength="40" placeholder="예: 토익 Part1 사진묘사"></div>
-      <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 0 10px;"><input type="checkbox" id="deck-notes" checked> 같은 분류의 요점 노트(글)도 포함</label>
-      <div class="btn-row"><button class="btn" id="deck-make">링크 만들기</button></div>
-      <div id="deck-out" style="margin-top:10px;"></div>
     </div>
 
     <div class="settings-block" id="dedupe-block">
@@ -1473,6 +1474,7 @@
 
 let data = { questions: [], drafts: [], notes: [], settings: { wrongDays: 1, correctDays: 3, dailyLimit: 15, masteredLimit: 5 } };
 let session = { queue: [], index: 0, answered: false, selected: null, correctCount: 0 };
+let retryKey = null;      // 다시 풀 틀린 문제의 날짜(null=오늘, 'none'=날짜 기록 없는 예전 문제)
 let retryMode = false;   // 오늘 틀린 문제 다시 풀기(연습) 중인지
 let editingId = null;
 let scanFiles = [];
@@ -1829,7 +1831,6 @@ function setInputType(type){
   document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active', b.dataset.type===type));
   const editingQuiz = (type==='quiz' && editingId!==null);
   document.getElementById('input-quiz-fields').style.display = editingQuiz ? 'block' : 'none';
-  document.getElementById('input-quiz-hint').style.display = (type==='quiz' && !editingQuiz) ? 'block' : 'none';
   // 오답노트는 '문제' 입력에서만 보임 (암기/요점정리에서는 스캔 바로 아래에 직접 입력이 나오도록)
   document.getElementById('notes-block').style.display = type==='quiz' ? 'block' : 'none';
   document.getElementById('input-memo-fields').style.display = type==='memo' ? 'block' : 'none';
@@ -1838,10 +1839,7 @@ function setInputType(type){
   if(type==='memo' && memoEditingId===null){ populateCategoryOptions(); }
   if(type==='note' && noteEditingId===null){ populateNoteCategoryOptions(); }
 
-  document.getElementById('scan-hint-quiz').style.display = type==='quiz' ? 'block' : 'none';
-  document.getElementById('scan-hint-note').style.display = type==='note' ? 'block' : 'none';
   { const mb = document.getElementById('scan-mm-btn'); if(mb) mb.style.display = type==='note' ? '' : 'none'; }
-  document.getElementById('scan-hint-memo').style.display = type==='memo' ? 'block' : 'none';
   const scanBtn = document.getElementById('scan-run-btn');
   scanBtn.disabled = !scanFiles.length;
   scanBtn.textContent = type==='note' ? '정리하기' : (type==='memo' ? '단어 인식하기' : '문제 인식하기');
@@ -4000,18 +3998,25 @@ function renderStatStrip(){
       <div class="ts-tile"><b>${mastered}<small>/${total}</small></b><span>숙달</span></div>
     </div>
     <div class="ts-actions">
-      <button class="stat-link" id="stat-wrong-cell" type="button">틀린 문제 <b>${wrongCount}</b> ›</button>
-      ${missN>0 ? `<button class="stat-link" id="stat-retry-cell" type="button">🔁 오늘 틀린 문제 다시 풀기 <b>${missN}</b></button>` : ''}
+      <button class="stat-link" id="stat-wrong-cell" type="button">틀린 문제 <b>${wrongCount}</b>${missN>0 ? ` · 오늘 <b>${missN}</b>` : ''} ›</button>
     </div>
   `;
   document.getElementById('stat-wrong-cell').addEventListener('click', toggleWrongQuestions);
-  const retryCell = document.getElementById('stat-retry-cell'); if(retryCell) retryCell.addEventListener('click', startRetry);
   try{ renderBlankStudy(); }catch(e){ console.error(e); }
   try{ renderGoalChip(); }catch(e){ console.error(e); }
   try{ updateBadgeAndPing(); }catch(e){ console.error(e); }
   try{ groupReportSoon(); }catch(e){ console.error(e); }
 }
 
+function wrongDayLabel(key){
+  if(key === 'none') return { t:'날짜 기록 없음', sub:'예전에 틀린 문제' };
+  const wd = ['일','월','화','수','목','금','토'], dt = new Date(key+'T00:00:00');
+  const md = `${dt.getMonth()+1}/${dt.getDate()} (${wd[dt.getDay()]})`;
+  const t = todayStr();
+  if(key === t) return { t:'오늘', sub:md };
+  if(key === addDays(t,-1)) return { t:'어제', sub:md };
+  return { t:md, sub:'' };
+}
 function renderWrongQuestions(){
   const container = document.getElementById('wrong-questions-list');
   const items = data.questions.filter(q=>!q.mastered && (q.wrongCount||0) > 0);
@@ -4019,18 +4024,40 @@ function renderWrongQuestions(){
     container.innerHTML = `<div class="empty">아직 틀린 문제가 없어요.</div>`;
     return;
   }
+  const groups = {};
+  items.forEach(q=>{ (groups[wrongKeyOf(q)] = groups[wrongKeyOf(q)] || []).push(q); });
+  const keys = Object.keys(groups).sort((a,b)=> a==='none' ? 1 : b==='none' ? -1 : (a<b ? 1 : -1));   // 최근 날짜 먼저, 날짜 없음은 맨 아래
+  const t = todayStr();
+  container.innerHTML = `<div class="wq-lead">마지막으로 틀린 날짜별로 모았어요. 날짜 옆 <b>다시 풀기</b>를 누르면 그 날 틀린 문제만 연습해요(복습 일정은 그대로).</div>`
+    + keys.map((key,i)=>{
+      const g = groups[key].slice().sort((a,b)=> (b.wrongCount||0) - (a.wrongCount||0));
+      const lb = wrongDayLabel(key), n = retryList(key===t ? null : key).length;
+      return `<details class="wq-grp" ${i===0 && key===t ? 'open' : ''}>
+        <summary>
+          <span class="wq-d">${lb.t}${lb.sub ? ` <small>${lb.sub}</small>` : ''}</span>
+          <span class="wq-n">${g.length}개</span>
+          ${n>0 ? `<button type="button" class="wq-retry" data-key="${key}">🔁 다시 풀기 ${n}</button>` : ''}
+        </summary>
+        <table class="qlist"><thead><tr><th>파트</th><th>문제</th><th>정답</th><th>틀린 횟수</th><th></th></tr></thead><tbody>${
+          g.map(q=>`<tr>
+            <td><span class="badge part" style="border:none;padding:0;">${escapeHtml(q.part)}</span></td>
+            <td class="qprev">${escapeHtml(q.question)}</td>
+            <td class="mono">${escapeHtml(q.answer)}</td>
+            <td class="mono">${q.wrongCount||0}</td>
+            <td><div class="row-actions"><button class="wrong-edit-btn" data-id="${q.id}">수정</button></div></td>
+          </tr>`).join('')
+        }</tbody></table>
+      </details>`;
+    }).join('')
+    + `<div class="btn-row" style="margin-top:12px;"><button class="btn outline" id="wrong-variant-btn">🔁 틀린 문제로 변형 문제 만들기</button></div>`;
   const sorted = items.slice().sort((a,b)=> (b.wrongCount||0) - (a.wrongCount||0));
-  container.innerHTML = `<table class="qlist"><thead><tr><th>파트</th><th>문제</th><th>정답</th><th>틀린 횟수</th><th></th></tr></thead><tbody>`
-    + sorted.map(q=>`<tr>
-        <td><span class="badge part" style="border:none;padding:0;">${escapeHtml(q.part)}</span></td>
-        <td class="qprev">${escapeHtml(q.question)}</td>
-        <td class="mono">${escapeHtml(q.answer)}</td>
-        <td class="mono">${q.wrongCount||0}</td>
-        <td><div class="row-actions"><button class="wrong-edit-btn" data-id="${q.id}">수정</button></div></td>
-      </tr>`).join('')
-    + `</tbody></table><div class="btn-row" style="margin-top:12px;"><button class="btn outline" id="wrong-variant-btn">🔁 틀린 문제로 변형 문제 만들기</button></div>`;
   document.getElementById('wrong-variant-btn').addEventListener('click', ()=>openVariantGen(sorted));
   container.querySelectorAll('.wrong-edit-btn').forEach(b=>b.addEventListener('click', ()=>editQuestion(b.dataset.id)));
+  container.querySelectorAll('.wq-retry').forEach(b=>b.addEventListener('click', e=>{
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById('wrong-questions-area').style.display = 'none';
+    startRetry(b.dataset.key === t ? '' : b.dataset.key);
+  }));
 }
 
 function toggleWrongQuestions(){
@@ -4087,7 +4114,7 @@ function statsViewOpen(){ const v=document.getElementById('stats-view'); return 
 
 function startSession(){
   clearTimeout(autoNextTimer);
-  retryMode = false;
+  retryMode = false; retryKey = null;
   renderStatStrip();
   renderCategoryFilter();
   session.queue = computeDue();
@@ -4272,6 +4299,13 @@ function todayMissed(){
   });
   return { wrong, all: wrong };
 }
+function wrongKeyOf(q){ return q.lastWrong || 'none'; }
+// 날짜 묶음별 다시 풀 문제: 오늘은 기존 방식, 그 외 날짜는 마지막으로 틀린 날(lastWrong)이 같은 미숙달 문제
+function retryList(key){
+  const t = todayStr();
+  if(!key || key === t) return todayMissed().all;
+  return (data.questions||[]).filter(q=>!q.mastered && (q.wrongCount||0)>0 && wrongKeyOf(q)===key && q.retryOkOn!==t);
+}
 function retryBtnHtml(){
   const m = todayMissed();
   if(!m.all.length) return '';
@@ -4283,8 +4317,8 @@ function retryTrail(finalLeft){
   return t.map((n,i)=> i===t.length-1 ? `<b>${n}</b>` : String(n)).join(' → ');
 }
 function beginRetryRound(first){
-  const m = todayMissed();
-  if(!m.all.length){ showToast('오늘 틀린 문제가 없어요'); return; }
+  const m = { all: retryList(retryKey) };
+  if(!m.all.length){ showToast('다시 풀 틀린 문제가 없어요'); return; }
   clearTimeout(autoNextTimer);
   retryMode = true;
   if(first || !session.retryTrail){ session.retryRound = 1; session.retryTrail = [m.all.length]; }
@@ -4295,11 +4329,11 @@ function beginRetryRound(first){
   renderReview(); renderStatStrip();
   try{ document.getElementById('review-area').scrollIntoView({block:'nearest'}); }catch(_){}
 }
-function startRetry(){ beginRetryRound(true); }
+function startRetry(key){ retryKey = (typeof key==='string' && key) ? key : null; beginRetryRound(true); }
 function nextRetryRound(){ beginRetryRound(false); }
-function endRetry(){ retryMode = false; startSession(); }
+function endRetry(){ retryMode = false; retryKey = null; startSession(); }
 function renderRetryDone(area){
-  const left = todayMissed().all.length, total = session.retryTotal || 0, ok = session.correctCount || 0, round = session.retryRound || 1;
+  const left = retryList(retryKey).length, total = session.retryTotal || 0, ok = session.correctCount || 0, round = session.retryRound || 1;
   const none = left === 0;
   area.innerHTML = `
     <div class="review-shell">
@@ -4763,7 +4797,7 @@ async function czImportPdf(file){
   });
 })();
 
-/* ---------- 문제집 공유 링크 · 스터디/학원 그룹 ---------- */
+/* ---------- 스터디/학원 그룹 ---------- */
 async function sha256Hex(str){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
 async function apiJson(url, opt){
   const r = await fetch(url, opt); let d = null; try{ d = await r.json(); }catch(_){}
@@ -4772,53 +4806,12 @@ async function apiJson(url, opt){
 }
 const apiPost = (url, body)=>apiJson(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
 
-/* 문제집 공유 */
-function deckUi(){
-  const sel = document.getElementById('deck-cat'); if(!sel) return;
-  const cats = {}; data.questions.forEach(q=>{ if(q.src==='blank') return; const c=q.part||'기타'; cats[c]=(cats[c]||0)+1; });
-  sel.innerHTML = '<option value="">전체</option>' + Object.keys(cats).sort(naturalCompare).map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)} (${cats[c]}개)</option>`).join('');
-  sel.onchange = ()=>{ document.getElementById('deck-title').value = sel.value || ''; };
-}
-document.getElementById('deck-make').addEventListener('click', async ()=>{
-  const cat = document.getElementById('deck-cat').value, out = document.getElementById('deck-out');
-  const items = data.questions.filter(q=>q.src!=='blank' && (!cat || (q.part||'기타')===cat)).map(q=>({ part:q.part||'기타', question:q.question, answer:q.answer, explanation:q.explanation||'', choices:q.choices||null }));
-  const notes = document.getElementById('deck-notes').checked ? data.notes.filter(n=>!cat || n.part===cat).map(n=>({ part:n.part, title:n.title, content:n.content||'' })) : [];
-  if(!items.length && !notes.length){ showToast('공유할 내용이 없어요'); return; }
-  if(items.length>600) showToast('문제가 많아서 앞 600개만 공유돼요');
-  out.innerHTML = '<div class="st-note" style="margin:0;">링크를 만드는 중...</div>';
-  try{
-    const r = await apiPost('/api/share', { title: document.getElementById('deck-title').value.trim() || cat || data.settings.deckTitle || currentSubject, items, notes });
-    const link = location.origin + '/?deck=' + r.id;
-    out.innerHTML = `<div class="st-line" style="word-break:break-all;">${escapeHtml(link)}</div><div class="st-note">문제 ${Math.min(items.length,600)}개 · 노트 ${Math.min(notes.length,30)}개 (링크는 계속 유지돼요)</div>
-      <div class="btn-row" style="margin-top:8px;"><button class="btn" id="deck-copy">링크 복사</button>${navigator.share?'<button class="btn outline" id="deck-share">공유하기</button>':''}</div>`;
-    out.querySelector('#deck-copy').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(link); showToast('링크를 복사했어요'); }catch(_){ showToast('복사하지 못했어요. 링크를 직접 눌러 복사하세요'); } });
-    const sb = out.querySelector('#deck-share'); if(sb) sb.addEventListener('click', ()=>navigator.share({ title:'NOAH NOTE 문제집', url:link }).catch(()=>{}));
-  }catch(e){ out.innerHTML = `<div class="st-note" style="margin:0;">링크를 만들지 못했어요. 원인: ${escapeHtml(e.message)}</div>`; }
-});
-async function deckImport(id){
-  const body = aiPanel('공유받은 문제집');
-  body.innerHTML = '<div class="st-note">불러오는 중...</div>';
-  let d; try{ d = await apiJson('/api/share?id='+encodeURIComponent(id)); }catch(e){ body.innerHTML = '<div class="st-note">문제집을 찾을 수 없어요. 링크가 맞는지 확인해주세요.</div>'; return; }
-  body.innerHTML = `<div class="st-card"><p class="st-h">${escapeHtml(d.title||'문제집')}</p><div class="st-line">문제 <b>${(d.items||[]).length}</b>개 · 노트 <b>${(d.notes||[]).length}</b>개</div>
-    <div class="st-note">현재 과목(${escapeHtml(currentSubject||'')})에 추가해요. 이미 있는 문제는 건너뛰어요.</div>
-    <div class="btn-row" style="margin-top:10px;"><button class="btn" id="deck-add">내 앱에 추가</button></div></div>`;
-  body.querySelector('#deck-add').addEventListener('click', async ()=>{
-    const have = new Set(data.questions.map(q=>(q.part||'')+'||'+q.question)); let add = 0, k = 0;
-    (d.items||[]).forEach(q=>{ const part = q.part||'기타'; if(have.has(part+'||'+q.question)) return; have.add(part+'||'+q.question);
-      data.questions.push({ id:'s_'+Date.now()+'_'+(k++)+'_'+Math.floor(Math.random()*10000), type:q.choices?undefined:'memo', part, question:q.question, choices:q.choices||null, answer:q.answer, explanation:q.explanation||'', box:0, correctCount:0, nextReviewDate:todayStr(), mastered:false, createdAt:todayStr(), src:'shared' }); add++; });
-    let nn = 0; const haveN = new Set(data.notes.map(n=>n.part+'||'+n.title));
-    (d.notes||[]).forEach(n=>{ if(haveN.has(n.part+'||'+n.title)) return; data.notes.push({ id:'n_'+Date.now()+'_'+(nn++)+'_'+Math.floor(Math.random()*1000), part:n.part||'기타', title:n.title, content:n.content||'', createdAt:todayStr(), att:[] }); });
-    await saveData(); renderStatStrip(); startSession(); renderCatSummary(); try{ renderNotesListView(); }catch(_){}
-    document.getElementById('aipanel').style.display = 'none'; showToast(`문제 ${add}개, 노트 ${nn}개를 추가했어요`);
-  });
-}
 function linkIntake(){
   const q = new URLSearchParams(location.search);
-  const deck = q.get('deck'), grp = q.get('group');
-  if(!deck && !grp) return;
+  const grp = q.get('group');
+  if(!grp) return;
   try{ history.replaceState(null, '', location.pathname); }catch(_){}
-  if(deck && /^[a-z2-9]{8}$/.test(deck)) deckImport(deck);
-  else if(grp && /^[A-Z2-9]{6}$/i.test(grp)) openGroup(grp.toUpperCase());
+  if(/^[A-Z2-9]{6}$/i.test(grp)) openGroup(grp.toUpperCase());
 }
 
 /* 그룹 */
@@ -6292,7 +6285,7 @@ function renderCatSummary(){
 
 function renderSettingsPanel(){
   backupLastText();
-  try{ renderSnaps(); renderTrash(); deckUi(); }catch(e){ console.error(e); }
+  try{ renderSnaps(); renderTrash(); }catch(e){ console.error(e); }
   document.getElementById('s-wrong').value = data.settings.wrongDays;
   document.getElementById('s-mlimit').value = data.settings.masteredLimit;
   document.getElementById('s-limit').value = data.settings.dailyLimit;
@@ -6830,7 +6823,7 @@ document.getElementById('backup-auto-btn').addEventListener('click', ()=>{
     const GROUPS=[
       ['자주 쓰는 것',[['화면 꾸미기','🎨','색 · 글꼴 · 글자 크기 · 앱 이름'],['복습 주기 설정','⏱','복습 간격 · 하루 문제 수'],['복습 알림','🔔','정한 시각에 알려줘요']]],
       ['내 데이터',[['데이터 백업 / 복구','💾','파일로 저장하고 불러오기'],['기기 간 자동 동기화','🔄','폰 · PC 같은 내용으로'],['자동 백업 · 되돌리기','⏪','실수했을 때 되돌리기'],['휴지통','🗑','지운 문제 · 노트 복구']]],
-      ['더 보기',[['앱으로 설치','📲','홈 화면에 추가'],['스캔 정확도 / 비용','🔍','스캔 방식 선택'],['문제집 공유 링크','🔗','친구와 문제 나누기'],['중복 문제 정리','🧹','같은 문제 찾아 합치기']]]
+      ['더 보기',[['앱으로 설치','📲','홈 화면에 추가'],['스캔 정확도 / 비용','🔍','스캔 방식 선택'],['중복 문제 정리','🧹','같은 문제 찾아 합치기']]]
     ];
     const ver=[...panel.children].find(el=>el.querySelector && el.querySelector('#app-ver'));
     const used=new Set();

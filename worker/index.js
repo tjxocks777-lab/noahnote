@@ -2,14 +2,13 @@
 // 각 기능은 functions/api/*.js 의 핸들러를 그대로 쓴다.
 import { onRequest as sync } from '../functions/api/sync.js';
 import { onRequest as scan } from '../functions/api/scan.js';
-import { onRequest as share } from '../functions/api/share.js';
 import { onRequest as group } from '../functions/api/group.js';
 import { onRequest as push } from '../functions/api/push.js';
 import { onRequest as pushRun } from '../functions/api/push-run.js';
 import { j } from '../functions/_lib/kv.js';
 import { runDue } from '../functions/_lib/push-lib.js';
 
-const ROUTES = { '/api/sync': sync, '/api/scan': scan, '/api/share': share, '/api/group': group, '/api/push': push, '/api/push-run': pushRun };
+const ROUTES = { '/api/sync': sync, '/api/scan': scan, '/api/group': group, '/api/push': push, '/api/push-run': pushRun };
 
 export default {
   async fetch(request, env, ctx) {
