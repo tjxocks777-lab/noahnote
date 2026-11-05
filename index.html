@@ -17,22 +17,32 @@
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@400;700&family=Gaegu:wght@400;700&family=Jua&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#EFF1EC;
+    --paper:#FBF7EC;
     --card:#FFFFFF;
-    --ink:#16233F;
-    --ink-soft:#3C4A66;
-    --red:#C1443B;
-    --red-soft:#F4E2DF;
-    --green:#2F7D5D;
-    --green-soft:#DEEBE3;
-    --pencil:#8A8578;
-    --line:#D8D5C9;
+    --ink:#1E2A47;
+    --ink-soft:#4B5675;
+    --red:#D0544A;
+    --red-soft:#FBE5E2;
+    --green:#2F8A66;
+    --green-soft:#E1F1E8;
+    --pencil:#8C887B;
+    --line:#E9E2CF;
     --on-ink:#fff;
-    --brand:#16233F;
+    --brand:#1E2A47;
     --on-brand:#fff;
+    --hl:#F7D774;
+    --hl-soft:#FCEFB8;
+    --on-hl:#1E2A47;
     --font-body:'Noto Sans KR',sans-serif;
+    --font-display:'Jua','Gaegu','Noto Sans KR',sans-serif;
+    --font-num:'Noto Sans KR',sans-serif;
+    --r-sm:10px;--r-md:14px;--r-lg:20px;--r-pill:999px;
+    --sh-card:0 2px 10px rgba(30,42,71,.07);
+    --sh-pop:0 10px 28px rgba(30,42,71,.16);
+    --sh-btn:rgba(30,42,71,.22);
   }
-  html[data-theme="dark"]{--paper:#0E1524;--card:#18223A;--ink:#E7ECF7;--ink-soft:#AEB9D2;--red:#E0645A;--red-soft:#3A2327;--green:#4DB68A;--green-soft:#1E3329;--pencil:#8793AE;--line:#2E3A56;--on-ink:#0E1524;--brand:#26375F;--on-brand:#fff;color-scheme:dark;}
+  html[data-theme="classic"]{--font-display:'Black Han Sans',sans-serif;--font-num:'IBM Plex Mono',monospace;--r-sm:0;--r-md:0;--r-lg:0;--r-pill:0;--sh-card:none;--sh-pop:none;--paper:#EFF1EC;--ink:#16233F;--ink-soft:#3C4A66;--red:#C1443B;--red-soft:#F4E2DF;--green:#2F7D5D;--green-soft:#DEEBE3;--pencil:#8A8578;--line:#D8D5C9;--brand:#16233F;--hl:#E8C45A;--hl-soft:#F6E7B0;}
+  html[data-theme="dark"]{--paper:#0E1524;--card:#18223A;--ink:#E7ECF7;--ink-soft:#AEB9D2;--red:#E0645A;--red-soft:#3A2327;--green:#4DB68A;--green-soft:#1E3329;--pencil:#8793AE;--line:#2E3A56;--on-ink:#0E1524;--brand:#26375F;--on-brand:#fff;--hl:#E8C45A;--hl-soft:#4A4120;--on-hl:#1B1E2B;--sh-card:0 2px 10px rgba(0,0,0,.35);--sh-pop:0 10px 28px rgba(0,0,0,.5);--sh-btn:rgba(0,0,0,.5);color-scheme:dark;}
   html[data-theme="cream"]{--paper:#F6F0E4;--card:#FFFDF7;--ink:#3A2F20;--ink-soft:#6B5B45;--pencil:#9C8E78;--line:#E0D5BD;--brand:#3A2F20;}
   html[data-theme="blue"]{--paper:#E9F0FA;--card:#FFFFFF;--ink:#12305E;--ink-soft:#3F5C8F;--pencil:#7A8BA8;--line:#CBD8EC;--brand:#12305E;}
   html[data-theme="green"]{--paper:#EAF2EC;--card:#FFFFFF;--ink:#1B3A2B;--ink-soft:#456B58;--pencil:#7F9A8B;--line:#CFE0D3;--brand:#1B3A2B;}
@@ -49,8 +59,8 @@
     font-family:var(--font-body);
     min-height:100vh;
   }
-  .mono{font-family:'IBM Plex Mono',monospace;}
-  .display{font-family:'Black Han Sans',sans-serif;}
+  .mono{font-family:var(--font-num);}
+  .display{font-family:var(--font-display);}
 
   .wrap{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
 
@@ -60,11 +70,11 @@
     padding-bottom:14px;margin-bottom:6px;
   }
   header.top h1{
-    font-family:'Black Han Sans',sans-serif;
+    font-family:var(--font-display);
     font-size:26px;margin:0;letter-spacing:0.5px;
   }
   header.top .sub{
-    font-family:'IBM Plex Mono',monospace;
+    font-family:var(--font-num);
     font-size:11px;color:var(--pencil);
     letter-spacing:0.5px;
   }
@@ -72,7 +82,7 @@
     display:flex;justify-content:space-between;align-items:center;width:100%;
   }
   .switch-subject-btn{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    font-family:var(--font-num);font-size:11px;
     background:none;border:1px solid var(--line);color:var(--ink-soft);
     padding:6px 10px;cursor:pointer;
   }
@@ -105,11 +115,11 @@
   }
   .cover-inner{text-align:center;}
   .cover-title{
-    font-family:'Black Han Sans',sans-serif;font-size:42px;
+    font-family:var(--font-display);font-size:42px;
     letter-spacing:1px;margin:0 0 16px;
   }
   .cover-hint{
-    font-family:'IBM Plex Mono',monospace;font-size:12px;
+    font-family:var(--font-num);font-size:12px;
     color:var(--line);opacity:0.8;
     animation:cover-pulse 1.8s ease-in-out infinite;
   }
@@ -119,7 +129,7 @@
   #subject-picker{min-height:100vh;background:var(--paper);}
   .picker-inner{max-width:480px;margin:0 auto;padding:60px 20px;}
   .picker-title{
-    font-family:'Black Han Sans',sans-serif;font-size:22px;
+    font-family:var(--font-display);font-size:22px;
     margin:0 0 24px;text-align:center;
   }
   .subject-row{
@@ -128,7 +138,7 @@
     padding:16px 18px;margin-bottom:8px;cursor:pointer;
   }
   .subject-row:hover{border-color:var(--ink);}
-  .subject-row-name{font-family:'Black Han Sans',sans-serif;font-size:15px;}
+  .subject-row-name{font-family:var(--font-display);font-size:15px;}
   .subject-del-btn{
     background:none;border:none;color:var(--pencil);text-decoration:underline;
     font-size:12px;cursor:pointer;flex:none;
@@ -181,7 +191,7 @@
   .stat{
     background:var(--card);padding:14px 8px;text-align:center;
   }
-  .stat .num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--ink);}
+  .stat .num{font-family:var(--font-num);font-size:22px;font-weight:600;color:var(--ink);}
   .stat .label{font-size:11px;color:var(--pencil);margin-top:2px;}
   .stat.stat-clickable{cursor:pointer;}
   .stat.stat-clickable:hover{background:var(--paper);}
@@ -200,7 +210,7 @@
     display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;
     font-size:12px;color:var(--pencil);margin-bottom:18px;
   }
-  .stat-line b{color:var(--ink);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .stat-line b{color:var(--ink);font-family:var(--font-num);font-weight:600;}
   .stat-line .stat-link{
     margin-left:auto;background:none;border:none;padding:0;cursor:pointer;
     font-size:12px;color:var(--ink-soft);text-decoration:underline;
@@ -208,7 +218,7 @@
   .stat-line .stat-link:hover{color:var(--red);}
   .quota-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:10px;}
   .quota-title{font-size:12px;font-weight:700;color:var(--ink-soft);}
-  .quota-nums{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);}
+  .quota-nums{font-family:var(--font-num);font-size:12px;color:var(--ink);}
   .quota-bar{height:12px;background:var(--paper);border:1px solid var(--line);overflow:hidden;}
   .quota-fill{height:100%;background:var(--green);transition:width .25s ease;}
   .quota-sub{font-size:11px;color:var(--pencil);margin-top:5px;}
@@ -219,13 +229,13 @@
   .dot{width:8px;height:8px;border-radius:50%;background:var(--line);}
   .dot.done{background:var(--ink);}
   .progress-row .count{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pencil);margin-left:auto;
+    font-family:var(--font-num);font-size:11px;color:var(--pencil);margin-left:auto;
   }
   .qmeta{
     display:flex;gap:8px;align-items:center;margin-bottom:14px;
   }
   .badge{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    font-family:var(--font-num);font-size:11px;
     border:1px solid var(--ink);padding:2px 8px;
     color:var(--ink);
   }
@@ -251,7 +261,7 @@
     width:26px;height:26px;min-width:26px;border-radius:50%;
     border:2px solid var(--ink);
     display:flex;align-items:center;justify-content:center;
-    font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px;
+    font-family:var(--font-num);font-weight:600;font-size:12px;
   }
   .choice-btn.selected .bubble{background:var(--ink);color:var(--on-ink);}
   .choice-btn.selected{border-color:var(--ink);}
@@ -274,11 +284,11 @@
   .gr-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);}
   .gr-row:first-of-type{border-top:none;}
   .gr-row.me{background:rgba(201,138,27,.12);margin:0 -8px;padding:10px 8px;}
-  .gr-rk{width:26px;font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:center;}
+  .gr-rk{width:26px;font-family:var(--font-num);font-weight:600;text-align:center;}
   .gr-nm{flex:1;min-width:0;}
   .gr-nm b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .gr-nm span{font-size:11.5px;color:var(--ink-soft);}
-  .gr-v{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;}
+  .gr-v{font-family:var(--font-num);font-weight:600;font-size:16px;}
   .gr-mini{display:flex;align-items:flex-end;gap:2px;height:22px;}
   .gr-mini i{display:block;width:6px;background:var(--ink);min-height:1px;}
   .gr-warn{color:var(--red);font-weight:700;}
@@ -306,7 +316,7 @@
   #goal-chip{display:none;margin-bottom:16px;}
   #goal-chip .gc{background:var(--brand);color:var(--on-brand);padding:12px 14px;cursor:pointer;}
   #goal-chip .gc-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
-  #goal-chip .gc-d{font-family:'Black Han Sans',sans-serif;font-size:20px;}
+  #goal-chip .gc-d{font-family:var(--font-display);font-size:20px;}
   #goal-chip .gc-n{font-size:13px;opacity:.9;text-align:right;}
   #goal-chip .gc-bar{height:6px;background:rgba(255,255,255,.25);margin-top:8px;}
   #goal-chip .gc-bar i{display:block;height:100%;background:var(--on-brand);}
@@ -317,7 +327,7 @@
   details.st-acc>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--ink-soft);}
   details.st-acc>summary::-webkit-details-marker{display:none;}
   details.st-acc>summary .sa-r{font-weight:400;font-size:12px;margin-left:auto;text-align:right;}
-  details.st-acc>summary::after{content:'▸';font-family:'IBM Plex Mono',monospace;font-size:12px;transition:transform .15s ease;}
+  details.st-acc>summary::after{content:'▸';font-family:var(--font-num);font-size:12px;transition:transform .15s ease;}
   details.st-acc[open]>summary::after{transform:rotate(90deg);}
   details.st-acc[open]>summary{margin-bottom:12px;}
   details.st-acc .cat-summary-row{background:var(--paper);padding:12px;}
@@ -325,7 +335,7 @@
   .st-h{font-size:12px;font-weight:700;color:var(--ink-soft);margin:0 0 10px;}
   .st-big{display:flex;gap:8px;}
   .st-big div{flex:1;text-align:center;font-size:11.5px;color:var(--ink-soft);}
-  .st-big b{display:block;font-size:22px;color:var(--ink);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;}
+  .st-big b{display:block;font-size:22px;color:var(--ink);font-family:var(--font-num);margin-bottom:2px;}
   .st-bars{display:flex;align-items:flex-end;gap:6px;height:90px;margin:4px 0 6px;}
   .st-bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:10px;color:var(--ink-soft);}
   .st-bars i{display:block;width:100%;background:var(--ink);min-height:2px;}
@@ -355,12 +365,12 @@
   .result-box{
     margin-top:6px;padding:16px;border:1px solid var(--line);background:var(--paper);
   }
-  .result-box .verdict{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:8px;}
+  .result-box .verdict{font-family:var(--font-display);font-size:18px;margin-bottom:8px;}
   .result-box.correct .verdict{color:var(--green);}
   .result-box.wrong .verdict{color:var(--red);}
-  .result-box .expl-label{font-size:11px;color:var(--pencil);font-family:'IBM Plex Mono',monospace;margin-bottom:4px;}
+  .result-box .expl-label{font-size:11px;color:var(--pencil);font-family:var(--font-num);margin-bottom:4px;}
   .result-box .expl{font-size:14px;line-height:1.6;white-space:pre-wrap;}
-  .result-box .next-due{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pencil);margin-top:10px;}
+  .result-box .next-due{font-family:var(--font-num);font-size:11px;color:var(--pencil);margin-top:10px;}
 
   .empty{
     text-align:center;padding:50px 20px;color:var(--pencil);
@@ -371,7 +381,7 @@
   .form-block{background:var(--card);border:1px solid var(--line);padding:22px;margin-bottom:20px;}
   .field{margin-bottom:16px;}
   .field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;}
-  .field .hint{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--pencil);margin-top:4px;}
+  .field .hint{font-family:var(--font-num);font-size:10px;color:var(--pencil);margin-top:4px;}
   select,textarea,input[type=text],input[type=number]{
     width:100%;
     font-family:var(--font-body);
@@ -384,10 +394,10 @@
   .mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   @media(max-width:480px){.mc-grid{grid-template-columns:1fr;}}
   .mc-item{display:flex;align-items:center;gap:8px;}
-  .mc-item span{font-family:'IBM Plex Mono',monospace;font-weight:600;width:16px;}
+  .mc-item span{font-family:var(--font-num);font-weight:600;width:16px;}
 
   .toggle-mc{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    font-family:var(--font-num);font-size:11px;color:var(--ink-soft);
     cursor:pointer;text-decoration:underline;margin-bottom:12px;display:inline-block;
   }
 
@@ -410,8 +420,8 @@
   }
   .cat-summary-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:10px;cursor:pointer;}
   .cat-summary-head:hover .cat-summary-name{color:var(--ink-soft);}
-  .cat-summary-name{font-family:'Black Han Sans',sans-serif;font-size:14px;color:var(--ink);}
-  .cat-summary-arrow{font-family:'IBM Plex Mono',monospace;font-size:11px;display:inline-block;margin-right:6px;transition:transform .15s ease;}
+  .cat-summary-name{font-family:var(--font-display);font-size:14px;color:var(--ink);}
+  .cat-summary-arrow{font-family:var(--font-num);font-size:11px;display:inline-block;margin-right:6px;transition:transform .15s ease;}
   .cat-summary-row.expanded .cat-summary-arrow{transform:rotate(90deg);}
   .cat-summary-count{font-size:12px;color:var(--pencil);white-space:nowrap;}
   .cat-summary-bar{height:12px;background:var(--paper);border:1px solid var(--line);overflow:hidden;display:flex;}
@@ -424,7 +434,7 @@
 
   table.qlist{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);}
   table.qlist th{
-    text-align:left;font-size:11px;color:var(--pencil);font-family:'IBM Plex Mono',monospace;
+    text-align:left;font-size:11px;color:var(--pencil);font-family:var(--font-num);
     padding:10px 10px;border-bottom:1px solid var(--line);font-weight:600;
   }
   table.qlist td{
@@ -432,7 +442,7 @@
   }
   table.qlist tr:last-child td{border-bottom:none;}
   .qprev{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .status-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border:1px solid var(--line);}
+  .status-tag{font-family:var(--font-num);font-size:10px;padding:2px 7px;border:1px solid var(--line);}
   .status-tag.mastered{color:var(--green);border-color:var(--green);}
   .status-tag.progress{color:var(--ink-soft);border-color:var(--ink-soft);}
   .status-tag.new{color:var(--pencil);}
@@ -444,11 +454,11 @@
   .row-actions button:hover{color:var(--ink);}
 
   .settings-block{background:var(--card);border:1px solid var(--line);padding:20px;margin-top:24px;}
-  .settings-block h3{font-family:'Black Han Sans',sans-serif;font-size:15px;margin:0 0 14px;}
+  .settings-block h3{font-family:var(--font-display);font-size:15px;margin:0 0 14px;}
   .settings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   @media(max-width:480px){.settings-grid{grid-template-columns:1fr;}}
 
-  .section-title{font-family:'Black Han Sans',sans-serif;font-size:16px;margin:0 0 14px;}
+  .section-title{font-family:var(--font-display);font-size:16px;margin:0 0 14px;}
   .toast{
     position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
     background:var(--ink);color:var(--on-ink);padding:10px 20px;
@@ -471,7 +481,7 @@
     border:1px solid var(--ink);padding:10px 18px;cursor:pointer;background:var(--card);
   }
   .scan-drop .file-label:hover{background:var(--paper);}
-  .scan-status{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--pencil);margin:10px 0;text-align:center;}
+  .scan-status{font-family:var(--font-num);font-size:12px;color:var(--pencil);margin:10px 0;text-align:center;}
 
   .scan-item{
     display:flex;gap:12px;align-items:flex-start;
@@ -480,9 +490,9 @@
   }
   .scan-item input[type=checkbox]{width:18px;height:18px;margin-top:2px;flex:none;}
   .scan-item .scan-item-body{flex:1;}
-  .scan-item .scan-num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pencil);margin-bottom:4px;}
+  .scan-item .scan-num{font-family:var(--font-num);font-size:11px;color:var(--pencil);margin-bottom:4px;}
   .scan-item .scan-q{font-size:14px;line-height:1.5;margin-bottom:6px;white-space:pre-wrap;}
-  .scan-item .scan-choices{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);}
+  .scan-item .scan-choices{font-family:var(--font-num);font-size:12px;color:var(--ink-soft);}
 
   .badge.stars{letter-spacing:2px;border-color:var(--line);}
   .badge .star-off{filter:grayscale(1);opacity:.28;}
@@ -555,7 +565,7 @@
     display:flex;justify-content:space-between;align-items:center;gap:16px;
     cursor:pointer;
   }
-  .memo-term{font-family:'Black Han Sans',sans-serif;font-size:15px;flex:1;min-width:0;}
+  .memo-term{font-family:var(--font-display);font-size:15px;flex:1;min-width:0;}
   .memo-def{font-size:14px;color:var(--ink-soft);flex:1;min-width:0;text-align:right;visibility:hidden;}
   .memo-row.revealed .memo-def{visibility:visible;}
   .memo-note{font-size:12px;color:var(--pencil);margin-top:8px;white-space:pre-wrap;display:none;}
@@ -574,7 +584,7 @@
     margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);
   }
   .memo-group-title{
-    font-family:'Black Han Sans',sans-serif;font-size:14px;color:var(--ink-soft);
+    font-family:var(--font-display);font-size:14px;color:var(--ink-soft);
     cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0;
   }
   .memo-group-title:hover{color:var(--ink);}
@@ -588,9 +598,9 @@
     font-size:11px;padding:3px 8px;cursor:pointer;flex:none;
   }
   .memo-reveal-all-btn:hover{color:var(--ink);border-color:var(--ink-soft);}
-  .memo-group-arrow{font-family:'IBM Plex Mono',monospace;font-size:11px;transition:transform .15s ease;}
+  .memo-group-arrow{font-family:var(--font-num);font-size:11px;transition:transform .15s ease;}
   .memo-group.expanded .memo-group-arrow{transform:rotate(90deg);}
-  .memo-group-count{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pencil);font-weight:400;}
+  .memo-group-count{font-family:var(--font-num);font-size:11px;color:var(--pencil);font-weight:400;}
   .memo-sel-cb{display:none;width:20px;height:20px;margin:0;flex:none;accent-color:var(--ink);}
   .memo-group.selecting .memo-sel-cb{display:inline-block;}
   .memo-group-sel-btn{background:none;border:1px solid var(--line);color:var(--ink-soft);font-size:11px;padding:3px 8px;cursor:pointer;flex:none;white-space:nowrap;}
@@ -623,7 +633,7 @@
     height:100vh;height:100dvh;
   }
   .ne-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);}
-  .ne-heading{font-family:'Black Han Sans',sans-serif;font-size:15px;}
+  .ne-heading{font-family:var(--font-display);font-size:15px;}
   .ne-done{background:var(--ink);color:var(--on-ink);border:none;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
   .ne-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);}
   .ne-tool{border:1px solid var(--line);background:var(--card);padding:8px 10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--ink);}
@@ -703,9 +713,130 @@
   .mm-sw.active{box-shadow:0 0 0 2px var(--ink);}
   .ne-grow{display:block;margin:14px auto 0;}
   .note-item-head{display:flex;justify-content:space-between;align-items:center;gap:12px;}
-  .note-item-title{font-family:'Black Han Sans',sans-serif;font-size:14px;cursor:pointer;flex:1;min-width:0;}
+  .note-item-title{font-family:var(--font-display);font-size:14px;cursor:pointer;flex:1;min-width:0;}
   .note-item-body{display:none;font-size:13px;line-height:1.7;color:var(--ink-soft);white-space:pre-wrap;margin-top:10px;}
   .note-item.expanded .note-item-body{display:block;}
+
+  /* ================= 포근한 모양 (v20261105-C) =================
+     둥근 모서리 · 부드러운 그림자 · 노란 강조 · 떠 있는 하단 탭.
+     '기존' 테마를 고르면 반지름/그림자 변수가 0이 되어 예전 모양으로 돌아가요. */
+  html{--dot:rgba(30,42,71,.07);}
+  html[data-theme="classic"]{--dot:transparent;}
+  html[data-theme="dark"]{--dot:rgba(255,255,255,.045);}
+  body{background-image:radial-gradient(var(--dot) 1.2px,transparent 1.4px);background-size:18px 18px;padding-bottom:calc(96px + env(safe-area-inset-bottom));}
+  .wrap{padding-top:18px;}
+
+  /* 머리글 */
+  header.top{border-bottom:none;padding-bottom:4px;margin-bottom:14px;}
+  header.top h1{font-size:23px;letter-spacing:.2px;}
+  .top-actions{display:flex;align-items:center;gap:8px;}
+  .top-ico{width:38px;height:38px;border-radius:var(--r-pill);border:none;background:var(--card);color:var(--ink);box-shadow:var(--sh-card);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+  .top-ico svg{width:20px;height:20px;}
+  .top-ico:active{transform:scale(.95);}
+  .switch-subject-btn{font-family:var(--font-body);font-size:13px;font-weight:700;background:var(--hl-soft);color:var(--ink);border:none;border-radius:var(--r-pill);padding:9px 14px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:var(--sh-card);}
+  .switch-subject-btn:hover{background:var(--hl);color:var(--on-hl);border:none;}
+  .section-title{font-size:20px;margin:0 0 12px;}
+
+  /* 하단 탭: 떠 있는 둥근 막대 + 아이콘 */
+  nav.tabs{left:50%;right:auto;transform:translateX(-50%);width:min(520px,calc(100% - 24px));bottom:calc(10px + env(safe-area-inset-bottom));padding:6px;gap:4px;border:none;border-radius:26px;box-shadow:var(--sh-pop);}
+  nav.tabs button + button{border-left:none;}
+  nav.tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 2px 8px;font-size:11.5px;border-top:none;border-radius:20px;}
+  nav.tabs button svg{width:22px;height:22px;}
+  nav.tabs button.active,nav.tabs button.active:hover{background:var(--hl);color:var(--on-hl);border-top:none;}
+  html[data-theme="classic"] nav.tabs{left:0;right:0;width:auto;transform:none;bottom:0;padding:0 0 env(safe-area-inset-bottom);gap:0;border-top:2px solid var(--ink);border-radius:0;}
+  html[data-theme="classic"] nav.tabs button{border-radius:0;flex-direction:row;font-size:14px;padding:18px 4px 20px;}
+  html[data-theme="classic"] nav.tabs button svg{display:none;}
+  html[data-theme="classic"] nav.tabs button.active{background:var(--ink);color:var(--on-ink);}
+  .toast{bottom:calc(102px + env(safe-area-inset-bottom));border-radius:var(--r-pill);padding:11px 22px;box-shadow:var(--sh-pop);}
+
+  /* 카드 */
+  .form-block,.settings-block,.review-shell,.cat-summary-row,.note-card,.note-item,.st-card,.hist-day,.scan-item,.subject-row,.scan-drop,.result-box,.ai-q,.memo-row{border-radius:var(--r-lg);}
+  .form-block,.settings-block,.review-shell,.cat-summary-row,.note-card,.note-item,.st-card,.hist-day,.scan-item,.subject-row,.ai-q{box-shadow:var(--sh-card);border-color:transparent;}
+  .result-box{border-radius:var(--r-md);}
+  .confirm-modal-box{border-radius:var(--r-lg);box-shadow:var(--sh-pop);border:none;}
+  .nv,.pen-wrap,.n-content-box,.scan-drop img,#cat-pick-panel,#bs-list{border-radius:var(--r-md);}
+  .scan-drop{border:2px dashed var(--line);box-shadow:none;}
+  .stats,table.qlist,.hist-sum div{border-radius:var(--r-md);overflow:hidden;}
+  #goal-chip .gc{background:var(--hl-soft);color:var(--ink);border-radius:var(--r-lg);}
+  #goal-chip .gc-bar{background:var(--line);border-radius:var(--r-pill);overflow:hidden;}
+  #goal-chip .gc-bar i{background:var(--ink);border-radius:var(--r-pill);}
+
+  /* 버튼 */
+  .btn{border-width:1.5px;border-radius:var(--r-pill);padding:12px 22px;box-shadow:0 2px 0 var(--sh-btn);transition:transform .08s ease,opacity .12s ease;}
+  .btn:active{transform:translateY(1px);box-shadow:none;}
+  .btn.outline{background:var(--card);box-shadow:none;}
+  .btn:disabled{box-shadow:none;}
+  .action-bar .btn,.grade-row .btn{border-radius:var(--r-md);}
+  .type-btn,.list-toggle-btn,.pf-row button,.wrong-filter button,.ai-opt button,.ne-tool,.memo-toolbar button,.cat-pick-actions button{border-radius:var(--r-pill);border-width:1.5px;}
+  .type-btn,.list-toggle-btn{border-color:var(--line);}
+  .type-btn.active,.list-toggle-btn.active,.pf-row button.on,.wrong-filter button.active,.ai-opt button.on,.ne-tool.active{background:var(--hl);color:var(--on-hl);border-color:var(--hl);}
+  .pf-sw{border-radius:50%;}
+  .pf-sw.on{box-shadow:0 0 0 3px var(--hl);}
+  .badge,.status-tag{border-radius:var(--r-pill);}
+  .ne-done{border-radius:var(--r-pill);}
+  .scan-drop .file-label{border-width:1.5px;border-radius:var(--r-pill);padding:11px 20px;}
+
+  /* 입력칸 */
+  select,textarea,input[type=text],input[type=number],input[type=date],input[type=search],input[type=password],#cat-pick-search{border-radius:var(--r-sm);border:1.5px solid var(--line);}
+  select:focus,textarea:focus,input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px var(--hl-soft);}
+
+  /* 선택지 */
+  .choice-btn{border-radius:var(--r-md);border-width:1.5px;}
+  .choice-btn.selected{background:var(--hl-soft);}
+  .choice-btn.selected .bubble{background:var(--hl);color:var(--on-hl);border-color:var(--ink);}
+
+  /* 오늘의 복습 첫 화면 */
+  .mode-row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px;}
+  .mode-row>.field{flex:1 1 150px;min-width:0;margin:0 !important;}
+  .mode-row>.field[data-open="1"]{flex-basis:100%;}
+  .mode-row .field>label{display:none;}
+  .mode-row .cat-pick-btn,.mode-row #blank-study-area .bs-bar{border-radius:var(--r-pill);border:none;background:var(--card);box-shadow:var(--sh-card);padding:12px 16px;font-size:13.5px;}
+  .mode-row .cat-pick-btn>span:first-child,.mode-row #blank-study-area .bs-bar>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mode-row #blank-study-area .bs-bar{background:var(--hl-soft);}
+  #cat-pick-panel,#bs-list{border:none;box-shadow:var(--sh-card);margin-top:8px;}
+  #bs-list .bs-go{border-radius:var(--r-pill);border:none;padding:8px 16px;}
+  .today-card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-card);padding:16px 18px 6px;margin-bottom:16px;}
+  .today-card:has(#quota-gauge:empty):has(#stat-strip:empty){display:none;}
+  .today-card #quota-gauge{margin-bottom:10px;}
+  .quota-title{font-size:13px;}
+  .quota-bar{height:14px;border:none;border-radius:var(--r-pill);background:var(--paper);}
+  .quota-fill{border-radius:var(--r-pill);}
+  .cat-summary-bar,.hist-bar,.st-pbar,.hist-bar i,.st-pbar i{border-radius:var(--r-pill);}
+  .cat-summary-bar{border:none;}
+  .st-bars i{border-radius:6px 6px 2px 2px;}
+
+  /* 설정 화면: 묶음 + 접기 */
+  .set-lead{font-size:12.5px;color:var(--ink-soft);margin:-4px 0 6px;line-height:1.6;}
+  .set-group{font-family:var(--font-display);font-size:14px;color:var(--ink-soft);margin:22px 4px 8px;}
+  #panel-settings .settings-block{margin-top:8px;padding:0;overflow:hidden;}
+  #panel-settings .settings-block>h3{display:flex;align-items:center;gap:12px;margin:0;padding:15px 16px;cursor:pointer;-webkit-user-select:none;user-select:none;}
+  #panel-settings .sb-ico{font-size:20px;line-height:1;width:28px;text-align:center;flex:none;}
+  #panel-settings .sb-tt{flex:1;min-width:0;font-size:15px;}
+  #panel-settings .sb-tt small{display:block;font-family:var(--font-body);font-size:12px;font-weight:400;color:var(--pencil);margin-top:2px;}
+  #panel-settings .sb-arr{flex:none;font-family:var(--font-body);font-size:13px;color:var(--pencil);transition:transform .15s ease;}
+  #panel-settings .settings-block.open>h3 .sb-arr{transform:rotate(180deg);}
+  #panel-settings .sb-body{display:none;padding:2px 18px 18px;}
+  #panel-settings .settings-block.open>.sb-body{display:block;}
+
+  /* 넣기 화면 */
+  .type-toggle .type-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 6px;line-height:1.25;}
+  .type-btn b{font-size:15px;}
+  .type-btn small{font-size:11px;font-weight:400;opacity:.65;}
+  .scan-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .scan-btns .file-label{flex:1 1 130px;max-width:200px;margin:0;}
+  .scan-btns .file-label:first-child{background:var(--hl);border-color:var(--hl);color:var(--on-hl);}
+  .scan-drop{padding:22px 16px;}
+  .scan-run-row .btn{flex:1;}
+  details.bulk-acc>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+  details.bulk-acc>summary::-webkit-details-marker{display:none;}
+  details.bulk-acc>summary::after{content:'▾';color:var(--pencil);font-size:13px;transition:transform .15s ease;}
+  details.bulk-acc[open]>summary::after{transform:rotate(180deg);}
+
+  .scan-run-row{flex-wrap:nowrap;}
+  .scan-run-row .btn{padding:12px 8px;font-size:13.5px;}
+  html[data-theme="classic"] .type-btn.active,html[data-theme="classic"] .list-toggle-btn.active,html[data-theme="classic"] .pf-row button.on,html[data-theme="classic"] .wrong-filter button.active,html[data-theme="classic"] .ai-opt button.on,html[data-theme="classic"] .ne-tool.active{background:var(--ink);color:var(--on-ink);border-color:var(--ink);}
+  html[data-theme="classic"] .scan-btns .file-label:first-child{background:var(--card);color:var(--ink);border-color:var(--ink);}
+  html[data-theme="classic"] .btn,html[data-theme="classic"] .type-btn,html[data-theme="classic"] .file-label{box-shadow:none;}
 </style>
 </head>
 <body>
@@ -736,20 +867,25 @@
   <header class="top">
     <div class="top-head-row">
       <h1>NOAH NOTE</h1>
-      <button class="switch-subject-btn" id="switch-subject-btn">← 과목 변경 (<span id="current-subject-label"></span>)</button>
+      <div class="top-actions">
+        <button class="top-ico" id="hdr-stats" type="button" title="학습 통계" aria-label="학습 통계"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></button>
+        <button class="top-ico" id="hdr-grp" type="button" title="스터디 · 학원 그룹" aria-label="스터디 · 학원 그룹"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.4-3.3 2.7-5.2 5.5-5.2s5.1 1.9 5.5 5.2"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.2c2.4.1 4.1 1.6 4.5 4.3"/></svg></button>
+        <button class="switch-subject-btn" id="switch-subject-btn" title="과목 바꾸기"><span id="current-subject-label"></span> ▾</button>
+      </div>
     </div>
   </header>
 
   <nav class="tabs">
-    <button class="tab-btn active" data-tab="review">오늘의 복습</button>
-    <button class="tab-btn" data-tab="memo">노트</button>
-    <button class="tab-btn" data-tab="scaninput">스캔·입력</button>
-    <button class="tab-btn" data-tab="settings">설정</button>
+    <button class="tab-btn active" data-tab="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg><span>복습</span></button>
+    <button class="tab-btn" data-tab="memo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z"/><path d="M5 17a3 3 0 013-3h11"/></svg><span>노트</span></button>
+    <button class="tab-btn" data-tab="scaninput"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>넣기</span></button>
+    <button class="tab-btn" data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>설정</span></button>
   </nav>
 
   <!-- REVIEW PANEL -->
   <section class="panel active" id="panel-review">
     <div id="goal-chip"></div>
+    <div class="mode-row" id="mode-row">
     <div id="blank-study-area" class="field" style="display:none;margin-bottom:18px;"></div>
     <div class="field" style="margin-bottom:18px;">
       <label>카테고리별로 풀기</label>
@@ -765,15 +901,18 @@
         <button class="btn" id="cat-pick-apply" type="button" style="width:100%;margin-top:10px;">선택한 카테고리로 풀기</button>
       </div>
     </div>
-    <div id="quota-gauge"></div>
-    <div class="stat-line" id="stat-strip"></div>
+    </div>
+    <div class="today-card" id="today-card">
+      <div id="quota-gauge"></div>
+      <div class="stat-line" id="stat-strip"></div>
+    </div>
     <div id="wrong-questions-area" style="display:none;margin-bottom:22px;">
       <p class="section-title" style="font-size:15px;">틀린 문제</p>
       <div id="wrong-questions-list"></div>
     </div>
     <div id="review-area"></div>
 
-    <div class="btn-row" style="margin-top:28px;">
+    <div class="btn-row" id="legacy-actions" style="display:none;">
       <button class="btn" id="stats-open-btn">📊 학습 통계 · 진행상황</button>
       <button class="btn outline" id="grp-open-btn">👥 스터디 · 학원 그룹</button>
     </div>
@@ -803,28 +942,31 @@
 
   <!-- SCAN + NOTES + INPUT (통합) PANEL -->
   <section class="panel" id="panel-scaninput">
-    <p class="section-title">입력 종류</p>
+    <p class="section-title">무엇을 넣을까요?</p>
     <div class="type-toggle">
-      <button class="type-btn active" data-type="quiz">문제</button>
-      <button class="type-btn" data-type="memo">암기</button>
-      <button class="type-btn" data-type="note">요점정리</button>
+      <button class="type-btn active" data-type="quiz"><b>문제</b><small>문제집 · 오답</small></button>
+      <button class="type-btn" data-type="memo"><b>암기</b><small>단어 · 용어</small></button>
+      <button class="type-btn" data-type="note"><b>요점</b><small>정리 노트</small></button>
     </div>
 
-    <p class="section-title" style="margin-top:28px;">스캔</p>
+    <p class="section-title" style="margin-top:24px;">📷 사진으로 넣기</p>
     <div class="scan-drop">
       <div id="scan-preview-wrap" style="display:none;">
         <div id="scan-count" style="font-size:13px;margin-bottom:8px;"></div>
         <div id="scan-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px;"></div>
       </div>
-      <label class="file-label" for="scan-file">사진 선택하기 (여러 장 가능)</label>
-      <input type="file" id="scan-file" accept="image/*,application/pdf" multiple style="display:none;">
-      <label class="file-label" for="scan-cam" style="margin-left:6px;">카메라로 찍기</label>
-      <input type="file" id="scan-cam" accept="image/*" capture="environment" style="display:none;">
-      <div class="hint" id="scan-hint-quiz" style="margin-top:10px;">문제집 한 페이지를 통째로 찍어도 돼요. 문제 텍스트와 보기(A~D)만 인식해요 — 정답·해설은 인식하지 않으니 아래 오답노트에서 직접 입력해주세요.</div>
-      <div class="hint" id="scan-hint-note" style="display:none;margin-top:10px;">정리된 필기나 설명 페이지를 찍으면 핵심 내용을 보기 좋게 정리해서 요점정리로 저장해드려요. 「🧠 마인드맵으로 만들기」를 누르면 글 대신 마인드맵으로 정리하고, 중요한 칸은 빈칸으로 미리 지정해 줘요.</div>
-      <div class="hint" id="scan-hint-memo" style="display:none;margin-top:10px;">단어장·암기 정리 페이지를 찍으면 용어와 뜻을 뽑아서 암기 항목으로 추가할 수 있어요. 추가하기 전에 내용을 고칠 수 있어요.</div>
+      <div class="scan-btns">
+        <label class="file-label" for="scan-file">📁 사진 고르기</label>
+        <input type="file" id="scan-file" accept="image/*,application/pdf" multiple style="display:none;">
+        <label class="file-label" for="scan-cam">📸 카메라</label>
+        <input type="file" id="scan-cam" accept="image/*" capture="environment" style="display:none;">
+      </div>
+      <div class="hint scan-multi" style="margin-top:8px;">여러 장 한꺼번에 골라도 돼요</div>
+      <div class="hint" id="scan-hint-quiz" style="margin-top:10px;">문제집 한 페이지를 통째로 찍어도 돼요. 문제와 보기(A~D)만 읽어요. 정답·해설은 아래 오답노트에 직접 적어요.</div>
+      <div class="hint" id="scan-hint-note" style="display:none;margin-top:10px;">필기 페이지를 찍으면 핵심만 정리해서 저장해요. 「🧠 마인드맵으로 만들기」를 누르면 빈칸도 미리 정해줘요.</div>
+      <div class="hint" id="scan-hint-memo" style="display:none;margin-top:10px;">단어장 페이지를 찍으면 용어와 뜻을 뽑아줘요. 추가하기 전에 고칠 수 있어요.</div>
     </div>
-    <div class="btn-row" style="margin-bottom:14px;">
+    <div class="btn-row scan-run-row" style="margin-bottom:14px;">
       <button class="btn" id="scan-run-btn" disabled>인식하기</button>
       <button class="btn outline" id="scan-mm-btn" style="display:none;" disabled>🧠 마인드맵으로 만들기</button>
     </div>
@@ -840,10 +982,10 @@
       <div id="notes-list"></div>
     </div>
 
-    <p class="section-title" style="margin-top:32px;">직접 입력</p>
+    <p class="section-title" style="margin-top:32px;">✍️ 직접 쓰기</p>
 
     <!-- QUIZ MANUAL FIELDS (only shown while editing an existing question) -->
-    <div class="hint" id="input-quiz-hint" style="margin-bottom:16px;">문제를 한 개씩 적으려면 위쪽 오답노트의 '+ 오답노트 추가'를 이용해주세요. 여러 개를 한 번에 넣으려면 아래 붙여넣기를 사용하세요.</div>
+    <div class="hint" id="input-quiz-hint" style="margin-bottom:16px;">한 개씩은 위 오답노트의 '+ 오답노트 추가', 여러 개는 아래 붙여넣기로 넣어요.</div>
     <div id="input-quiz-fields" style="display:none;">
       <div class="form-block">
         <p class="section-title" id="add-title" style="font-size:15px;">문제 추가</p>
@@ -944,19 +1086,20 @@
     </div>
 
     <!-- SHARED BULK PASTE (문제/암기 전용) -->
-    <div class="form-block" id="bulk-block">
-      <p class="section-title" style="font-size:15px;">여러 개 한번에 붙여넣기</p>
-      <textarea id="bulk-text" style="min-height:180px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;" placeholder="여기에 붙여넣으세요"></textarea>
+    <div class="form-block" id="bulk-block"><details class="bulk-acc">
+      <summary class="section-title" style="font-size:15px;margin:0;">📋 여러 개 한번에 붙여넣기</summary>
+      <textarea id="bulk-text" style="margin-top:14px;min-height:180px;font-family:var(--font-num);font-size:12.5px;" placeholder="여기에 붙여넣으세요"></textarea>
       <div class="btn-row" style="margin-top:14px;">
         <button class="btn" id="bulk-add-btn">일괄 추가</button>
       </div>
       <div id="bulk-result" style="margin-top:12px;font-size:12px;color:var(--pencil);white-space:pre-line;"></div>
-    </div>
+    </details></div>
   </section>
 
   <!-- OVERVIEW PANEL -->
   <section class="panel" id="panel-settings">
     <p class="section-title">설정</p>
+    <p class="set-lead">필요할 때만 열어서 쓰세요. 제목을 누르면 펼쳐져요.</p>
 
     <div class="settings-block">
       <h3>복습 주기 설정</h3>
@@ -1008,7 +1151,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-B</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-C</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -3766,7 +3909,7 @@ function renderCategoryFilter(){
   Array.from(reviewCats).forEach(c=>{ if(!totals[c]) reviewCats.delete(c); });
   const totalDue = data.questions.filter(q=>q.nextReviewDate<=t).length;
   let label, due;
-  if(reviewCats.size===0){ label = '전체 카테고리'; due = totalDue; }
+  if(reviewCats.size===0){ label = '전체'; due = totalDue; }
   else {
     due = Array.from(reviewCats).reduce((s,c)=>s+(counts[c]||0),0);
     const names = Array.from(reviewCats).sort(naturalCompare);
@@ -3774,7 +3917,8 @@ function renderCategoryFilter(){
   }
   const open = document.getElementById('cat-pick-panel').style.display==='block';
   document.getElementById('cat-pick-btn').innerHTML =
-    `<span>${escapeHtml(label)} <span style="font-weight:400;color:var(--ink-soft);">· 복습 ${due}</span></span><span class="arrow">${open?'▲':'▼'}</span>`;
+    `<span>🗂 ${escapeHtml(label)} <span style="font-weight:400;color:var(--ink-soft);">· 복습 ${due}</span></span><span class="arrow">${open?'▲':'▼'}</span>`;
+  document.getElementById('cat-pick-btn').parentElement.dataset.open = open ? '1' : '0';
   if(open) renderCatPickList();
 }
 function catPickData(){
@@ -4738,7 +4882,7 @@ async function renderGroup(prefillCode){
   body.innerHTML = '<div class="st-note">불러오는 중...</div>';
   const link = location.origin + '/?group=' + g.code;
   const head = `<div class="st-card"><p class="st-h">${g.kind==='class'?'🏫':'👥'} ${escapeHtml(g.name)} · 내 닉네임 ${escapeHtml(g.nick)}</p>
-      <div class="st-line">그룹 코드 <b style="font-family:'IBM Plex Mono',monospace;font-size:18px;letter-spacing:2px;">${g.code}</b></div>
+      <div class="st-line">그룹 코드 <b style="font-family:var(--font-num);font-size:18px;letter-spacing:2px;">${g.code}</b></div>
       <div class="btn-row" style="margin-top:8px;gap:8px;"><button class="btn outline" id="gr-copy" style="padding:8px 12px;font-size:13px;">초대 링크 복사</button><button class="btn outline" id="gr-refresh" style="padding:8px 12px;font-size:13px;">새로고침</button></div></div>`;
   let main = '';
   try{
@@ -4903,8 +5047,8 @@ document.getElementById('dedupe-scan-btn').addEventListener('click', ()=>{
 
 /* ---------- 화면 꾸미기 (테마·글꼴·글씨 크기·앱 이름) ---------- */
 const PREFS_KEY = 'noah-note-prefs';
-const THEMES = [['default','기본','#EFF1EC','#16233F'],['dark','다크','#0E1524','#E7ECF7'],['cream','크림','#F6F0E4','#3A2F20'],['blue','블루','#E9F0FA','#12305E'],['green','그린','#EAF2EC','#1B3A2B'],['pink','핑크','#FAEEF1','#4A2236']];
-const THEME_BAR = { default:'#16233F', dark:'#26375F', cream:'#3A2F20', blue:'#12305E', green:'#1B3A2B', pink:'#4A2236' };
+const THEMES = [['default','포근','#FBF7EC','#1E2A47'],['classic','기존','#EFF1EC','#16233F'],['dark','다크','#0E1524','#E7ECF7'],['cream','크림','#F6F0E4','#3A2F20'],['blue','블루','#E9F0FA','#12305E'],['green','그린','#EAF2EC','#1B3A2B'],['pink','핑크','#FAEEF1','#4A2236']];
+const THEME_BAR = { default:'#1E2A47', classic:'#16233F', dark:'#26375F', cream:'#3A2F20', blue:'#12305E', green:'#1B3A2B', pink:'#4A2236' };
 const FONTS = [['sans','고딕'],['serif','명조'],['hand','손글씨'],['round','둥근']];
 const SIZES = [['0.92','작게'],['1','보통'],['1.12','크게'],['1.25','아주 크게']];
 function prefsGet(){ try{ return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}') || {}; }catch(_){ return {}; } }
@@ -5345,6 +5489,8 @@ function openStats(){ document.getElementById('stats-view').style.display='flex'
 function closeStats(){ document.getElementById('stats-view').style.display='none'; }
 document.getElementById('st-close').addEventListener('click', closeStats);
 document.getElementById('stats-open-btn').addEventListener('click', openStats);
+document.getElementById('hdr-stats').addEventListener('click', openStats);
+document.getElementById('hdr-grp').addEventListener('click', ()=>openGroup());
 
 /* ---------- 노트의 빈칸 → 오늘의 복습 자동 연결 ---------- */
 function blankCat(n){ const p=(n.part||'').trim(), t=(n.title||'').trim(); return (p && t && p!==t) ? p+' '+t : (t||p||'기타'); }
@@ -5406,15 +5552,11 @@ function renderBlankStudy(){
     if(trees.length) sets.push({ n, kind:'mm', trees, cnt:nm });
     if(n.cz && (n.cz.bl||[]).length) sets.push({ n, kind:'cz', cnt:n.cz.bl.length });
   });
-  if(!sets.length){
-    area.style.display = 'block';
-    area.innerHTML = `<label>빈칸 학습</label><div class="bs-bar bs-off"><span>빈칸을 정한 노트가 아직 없어요</span></div>`;
-    return;
-  }
+  if(!sets.length){ area.style.display = 'none'; area.innerHTML = ''; return; }   // 빈칸을 정한 노트가 없으면 숨김
   const open = area.dataset.open==='1';
   area.style.display = 'block';
   area.innerHTML = `<label>빈칸 학습</label>
-  <button class="bs-bar" id="bs-head" type="button"><span>노트 선택 · ${sets.length}개</span><span class="arrow">${open?'▲':'▼'}</span></button>
+  <button class="bs-bar" id="bs-head" type="button"><span>🧩 빈칸 학습 <span style="font-weight:400;color:var(--ink-soft);">· ${sets.length}개</span></span><span class="arrow">${open?'▲':'▼'}</span></button>
   <div id="bs-list" style="display:${open?'block':'none'};">${sets.map((x,i)=>`<div class="bs-row">
     <div style="min-width:0;"><div class="bs-name">${escapeHtml(blankCat(x.n))}</div>
     <div class="bs-sub">${x.kind==='mm'?'마인드맵':'글 빈칸'} · 빈칸 ${x.cnt}개</div></div>
@@ -6660,6 +6802,42 @@ document.getElementById('backup-auto-btn').addEventListener('click', ()=>{
     document.querySelector('.cover-hint').textContent = '화면을 눌러 시작하기';
   }
   setTimeout(()=>syncRun(), 600);
+})();
+</script>
+
+<script>
+/* 설정 화면: 블록을 묶음별로 정리하고 제목을 누르면 펼쳐지게 (기능·ID는 그대로) */
+(function(){
+  try{
+    const panel=document.getElementById('panel-settings'); if(!panel) return;
+    const blocks=[...panel.querySelectorAll(':scope > .settings-block')];
+    const by={}; blocks.forEach(b=>{ const h=b.querySelector(':scope > h3'); if(h) by[h.textContent.trim()]=b; });
+    const GROUPS=[
+      ['자주 쓰는 것',[['화면 꾸미기','🎨','색 · 글꼴 · 글자 크기 · 앱 이름'],['복습 주기 설정','⏱','복습 간격 · 하루 문제 수'],['복습 알림','🔔','정한 시각에 알려줘요']]],
+      ['내 데이터',[['데이터 백업 / 복구','💾','파일로 저장하고 불러오기'],['기기 간 자동 동기화','🔄','폰 · PC 같은 내용으로'],['자동 백업 · 되돌리기','⏪','실수했을 때 되돌리기'],['휴지통','🗑','지운 문제 · 노트 복구']]],
+      ['더 보기',[['앱으로 설치','📲','홈 화면에 추가'],['스캔 정확도 / 비용','🔍','스캔 방식 선택'],['문제집 공유 링크','🔗','친구와 문제 나누기'],['중복 문제 정리','🧹','같은 문제 찾아 합치기']]]
+    ];
+    const ver=[...panel.children].find(el=>el.querySelector && el.querySelector('#app-ver'));
+    const used=new Set();
+    GROUPS.forEach(([title,items])=>{
+      const t=document.createElement('div'); t.className='set-group'; t.textContent=title; panel.appendChild(t);
+      items.forEach(([name,ico,sub])=>{
+        const b=by[name]; if(!b) return; used.add(b);
+        const h=b.querySelector(':scope > h3');
+        const body=document.createElement('div'); body.className='sb-body';
+        while(h.nextSibling) body.appendChild(h.nextSibling);
+        b.appendChild(body);
+        h.innerHTML='<span class="sb-ico">'+ico+'</span><span class="sb-tt">'+name+'<small>'+sub+'</small></span><span class="sb-arr">▾</span>';
+        h.setAttribute('role','button'); h.tabIndex=0;
+        const tog=()=>b.classList.toggle('open');
+        h.addEventListener('click',tog);
+        h.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); tog(); } });
+        panel.appendChild(b);
+      });
+    });
+    blocks.forEach(b=>{ if(!used.has(b)) panel.appendChild(b); });   // 목록에 없는 블록도 사라지지 않게
+    if(ver) panel.appendChild(ver);
+  }catch(e){ console.warn('settings accordion', e); }
 })();
 </script>
 </body>
