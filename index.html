@@ -792,7 +792,6 @@
   .mode-row .field>label{display:none;}
   .mode-row .cat-pick-btn,.mode-row #blank-study-area .bs-bar{border-radius:var(--r-pill);border:none;background:var(--card);box-shadow:var(--sh-card);padding:12px 16px;font-size:13.5px;}
   .mode-row .cat-pick-btn>span:first-child,.mode-row #blank-study-area .bs-bar>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .mode-row #blank-study-area .bs-bar{background:var(--hl-soft);}
   #cat-pick-panel,#bs-list{border:none;box-shadow:var(--sh-card);margin-top:8px;}
   #bs-list .bs-go{border-radius:var(--r-pill);border:none;padding:8px 16px;}
   .today-card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-card);padding:16px 18px 6px;margin-bottom:16px;}
@@ -837,6 +836,18 @@
   html[data-theme="classic"] .type-btn.active,html[data-theme="classic"] .list-toggle-btn.active,html[data-theme="classic"] .pf-row button.on,html[data-theme="classic"] .wrong-filter button.active,html[data-theme="classic"] .ai-opt button.on,html[data-theme="classic"] .ne-tool.active{background:var(--ink);color:var(--on-ink);border-color:var(--ink);}
   html[data-theme="classic"] .scan-btns .file-label:first-child{background:var(--card);color:var(--ink);border-color:var(--ink);}
   html[data-theme="classic"] .btn,html[data-theme="classic"] .type-btn,html[data-theme="classic"] .file-label{box-shadow:none;}
+
+  /* 오늘 카드: 숫자 3칸 + 버튼 줄 */
+  .today-card .stat-line{display:block;margin:0;font-size:inherit;color:inherit;}
+  .ts-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 12px;}
+  .ts-tile{background:var(--paper);border-radius:var(--r-md);padding:12px 4px 10px;text-align:center;}
+  .ts-tile b{display:block;font-size:22px;font-weight:700;color:var(--ink);line-height:1.1;}
+  .ts-tile b small{font-size:11px;font-weight:400;color:var(--pencil);margin-left:2px;}
+  .ts-tile span{display:block;font-size:12px;color:var(--ink-soft);margin-top:5px;}
+  .ts-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .ts-actions .stat-link{flex:1 1 auto;margin:0;padding:11px 14px;border:none;border-radius:var(--r-pill);background:var(--paper);color:var(--ink);font-size:13px;font-weight:500;text-decoration:none;text-align:center;cursor:pointer;}
+  .ts-actions .stat-link b{font-weight:700;}
+  .ts-actions .stat-link:hover{background:var(--hl-soft);color:var(--ink);}
 </style>
 </head>
 <body>
@@ -1151,7 +1162,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-C</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-D</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -3983,11 +3994,15 @@ function renderStatStrip(){
   const wrongCount = data.questions.filter(q=>!q.mastered && (q.wrongCount||0) > 0).length;
   const missN = todayMissed().all.length;
   document.getElementById('stat-strip').innerHTML = `
-    <span>복습 대상 <b>${dueToday}</b></span>
-    <span>학습중 <b>${inProgress}</b></span>
-    <span>숙달 <b>${mastered}</b> / ${total}</span>
-    <button class="stat-link" id="stat-wrong-cell">틀린 문제 ${wrongCount} ›</button>
-    ${missN>0 ? `<button class="stat-link" id="stat-retry-cell">🔁 오늘 틀린 문제 다시 풀기 ${missN} ›</button>` : ''}
+    <div class="ts-tiles">
+      <div class="ts-tile"><b>${dueToday}</b><span>복습 대상</span></div>
+      <div class="ts-tile"><b>${inProgress}</b><span>학습중</span></div>
+      <div class="ts-tile"><b>${mastered}<small>/${total}</small></b><span>숙달</span></div>
+    </div>
+    <div class="ts-actions">
+      <button class="stat-link" id="stat-wrong-cell" type="button">틀린 문제 <b>${wrongCount}</b> ›</button>
+      ${missN>0 ? `<button class="stat-link" id="stat-retry-cell" type="button">🔁 오늘 틀린 문제 다시 풀기 <b>${missN}</b></button>` : ''}
+    </div>
   `;
   document.getElementById('stat-wrong-cell').addEventListener('click', toggleWrongQuestions);
   const retryCell = document.getElementById('stat-retry-cell'); if(retryCell) retryCell.addEventListener('click', startRetry);
