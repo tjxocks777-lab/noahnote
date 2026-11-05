@@ -865,6 +865,27 @@
   details.wq-grp .row-actions button{white-space:nowrap;}
   details.wq-grp td.mono{white-space:nowrap;}
   details.wq-grp table.qlist{border:none;border-radius:0;box-shadow:none;border-top:1px solid var(--line);}
+
+  /* 넣기 화면 튜토리얼 */
+  .title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .title-row .section-title{margin:0 0 12px;}
+  .help-btn{width:32px;height:32px;margin-bottom:12px;border:none;border-radius:50%;background:var(--card);color:var(--ink-soft);box-shadow:var(--sh-card);font:inherit;font-size:15px;font-weight:700;cursor:pointer;flex:none;}
+  .help-btn:hover{background:var(--hl-soft);color:var(--ink);}
+  #tut{position:fixed;inset:0;z-index:310;}
+  #tut-shield{position:absolute;inset:0;}
+  #tut-hole{position:fixed;border-radius:18px;box-shadow:0 0 0 100vmax rgba(18,24,43,.64);pointer-events:none;transition:top .18s ease,left .18s ease,width .18s ease,height .18s ease;}
+  #tut-card{position:fixed;left:12px;right:12px;margin:0 auto;max-width:440px;background:var(--card);color:var(--ink);border-radius:var(--r-lg);box-shadow:var(--sh-pop);padding:16px 18px 14px;}
+  #tut-card.at-top{top:calc(12px + env(safe-area-inset-top));}
+  #tut-card.at-bottom{bottom:calc(100px + env(safe-area-inset-bottom));}
+  #tut-card .tut-step{font-size:11.5px;color:var(--pencil);margin-bottom:4px;}
+  #tut-card .tut-title{font-family:var(--font-display);font-size:18px;margin:0 0 6px;}
+  #tut-card .tut-desc{font-size:14px;line-height:1.65;color:var(--ink-soft);margin:0 0 14px;}
+  #tut-card .tut-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  #tut-card .tut-skip{background:none;border:none;color:var(--pencil);font:inherit;font-size:13px;padding:8px 4px;cursor:pointer;}
+  #tut-card .tut-dots{display:flex;gap:5px;}
+  #tut-card .tut-dots i{width:7px;height:7px;border-radius:50%;background:var(--line);}
+  #tut-card .tut-dots i.on{background:var(--ink);}
+  #tut-card .tut-next{border:none;border-radius:var(--r-pill);background:var(--hl);color:var(--on-hl);font:inherit;font-size:14px;font-weight:700;padding:11px 22px;cursor:pointer;box-shadow:0 2px 0 var(--sh-btn);}
 </style>
 </head>
 <body>
@@ -970,7 +991,7 @@
 
   <!-- SCAN + NOTES + INPUT (통합) PANEL -->
   <section class="panel" id="panel-scaninput">
-    <p class="section-title">무엇을 넣을까요?</p>
+    <div class="title-row"><p class="section-title">무엇을 넣을까요?</p><button type="button" class="help-btn" id="tut-help" aria-label="사용법 보기" title="사용법 보기">?</button></div>
     <div class="type-toggle">
       <button class="type-btn active" data-type="quiz"><b>문제</b><small>문제집 · 오답</small></button>
       <button class="type-btn" data-type="memo"><b>암기</b><small>단어 · 용어</small></button>
@@ -1173,7 +1194,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-H</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-I</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -6846,6 +6867,75 @@ document.getElementById('backup-auto-btn').addEventListener('click', ()=>{
     blocks.forEach(b=>{ if(!used.has(b)) panel.appendChild(b); });   // 목록에 없는 블록도 사라지지 않게
     if(ver) panel.appendChild(ver);
   }catch(e){ console.warn('settings accordion', e); }
+})();
+</script>
+
+<script>
+/* 넣기 화면 첫 방문 튜토리얼 (처음 한 번만 · 제목 옆 ? 버튼으로 다시 보기) */
+(function(){
+  const KEY='noah-note-tut-input';
+  const STEPS=[
+    {sel:'#panel-scaninput .type-toggle', t:'무엇을 넣을까요?', d:'문제 · 암기 · 요점 중에서 먼저 골라요. 고른 종류에 맞게 아래 화면이 바뀌어요.'},
+    {sel:'#panel-scaninput .scan-drop', t:'사진으로 넣기', d:'교재나 필기를 찍거나 골라서 올리면 문제·단어·요점으로 바꿔줘요. 여러 장도 한꺼번에 골라도 돼요. 문제의 정답·해설은 오답노트에 직접 적어요.'},
+    {sel:'#notes-add-blank-btn', t:'직접 쓰기', d:'문제를 한 개씩 쓸 땐 “+ 오답노트 추가”를 눌러요. 암기·요점은 위에서 종류를 바꾸면 입력칸이 나와요.'},
+    {sel:'#bulk-block', t:'여러 개 붙여넣기', d:'한 번에 많이 넣을 땐 이 칸을 열어서 붙여넣으세요.'},
+    {sel:'#tut-help', t:'다시 보고 싶을 땐', d:'이 안내는 처음 한 번만 나와요. 다시 보려면 여기 ? 버튼을 누르세요.'}
+  ];
+  let steps=[], idx=0, root=null;
+  const seen=()=>{ try{ return localStorage.getItem(KEY)==='1'; }catch(e){ return false; } };
+  const mark=()=>{ try{ localStorage.setItem(KEY,'1'); }catch(e){} };
+  const vis=el=>!!el && el.getClientRects().length>0;
+  const editing=()=>{ try{ return editingId!==null || memoEditingId!==null || noteEditingId!==null; }catch(e){ return false; } };
+
+  function place(){
+    if(!root) return;
+    const st=steps[idx], el=document.querySelector(st.sel); if(!el) return;
+    el.scrollIntoView({block:'center'});
+    const r=el.getBoundingClientRect(), pad=8, vh=window.innerHeight, vw=window.innerWidth;
+    const top=Math.max(6,r.top-pad), left=Math.max(6,r.left-pad);
+    const bottom=Math.min(vh-6,r.bottom+pad), right=Math.min(vw-6,r.right+pad);
+    const h=root.querySelector('#tut-hole');
+    h.style.top=top+'px'; h.style.left=left+'px'; h.style.width=Math.max(0,right-left)+'px'; h.style.height=Math.max(0,bottom-top)+'px';
+    const card=root.querySelector('#tut-card');
+    card.className=((top+bottom)/2 < vh*0.5) ? 'at-bottom' : 'at-top';
+  }
+  function show(i){
+    idx=i; const st=steps[i], last=i===steps.length-1;
+    const card=root.querySelector('#tut-card');
+    card.innerHTML='<div class="tut-step">'+(i+1)+' / '+steps.length+'</div><p class="tut-title"></p><p class="tut-desc"></p>'
+      +'<div class="tut-row"><button type="button" class="tut-skip">'+(last?'':'건너뛰기')+'</button><div class="tut-dots">'+steps.map((_,k)=>'<i class="'+(k===i?'on':'')+'"></i>').join('')+'</div><button type="button" class="tut-next">'+(last?'알겠어요':'다음')+'</button></div>';
+    card.querySelector('.tut-title').textContent=st.t; card.querySelector('.tut-desc').textContent=st.d;
+    card.querySelector('.tut-next').addEventListener('click',()=>{ last ? end() : show(i+1); });
+    const sk=card.querySelector('.tut-skip'); if(last) sk.style.visibility='hidden'; else sk.addEventListener('click',end);
+    place();
+  }
+  function end(){
+    mark();
+    if(root){ root.remove(); root=null; }
+    window.removeEventListener('resize',place);
+    document.removeEventListener('keydown',onKey);
+  }
+  function onKey(e){ if(e.key==='Escape') end(); else if(e.key==='Enter'||e.key==='ArrowRight'){ const n=root&&root.querySelector('.tut-next'); if(n) n.click(); } }
+  function start(force){
+    if(root) return;
+    if(!force && (seen() || editing())) return;
+    try{ if(!editing() && typeof currentInputType!=='undefined' && currentInputType!=='quiz') setInputType('quiz'); }catch(e){}
+    steps=STEPS.filter(s=>vis(document.querySelector(s.sel)));
+    if(!steps.length) return;
+    root=document.createElement('div'); root.id='tut';
+    root.innerHTML='<div id="tut-shield"></div><div id="tut-hole"></div><div id="tut-card" role="dialog" aria-live="polite"></div>';
+    document.body.appendChild(root);
+    window.addEventListener('resize',place);
+    document.addEventListener('keydown',onKey);
+    show(0);
+  }
+  try{
+    const panel=document.getElementById('panel-scaninput');
+    const maybe=()=>{ if(panel.classList.contains('active') && !seen()) setTimeout(()=>{ if(panel.classList.contains('active')) start(false); },450); };
+    new MutationObserver(maybe).observe(panel,{attributes:true,attributeFilter:['class']});
+    document.getElementById('tut-help').addEventListener('click',()=>start(true));
+    maybe();
+  }catch(e){ console.warn('tutorial', e); }
 })();
 </script>
 </body>
