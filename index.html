@@ -1008,7 +1008,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261104-A</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -2553,11 +2553,13 @@ function mmLayoutV(ctx){
 }
 /* 배치: lay='v' 세로형, lay='h' 가로형, 없으면 자동 — 가로형이 이 폭(px)보다 넓어지면 노트에서 작게 줄어들므로 세로형으로 바꿔 크게 보이게 함 */
 const MM_AUTO_W = 520;
+/* 자동 배치: 가로형이 화면 너비 안에 들어가면 가로형, 아니면 세로형(폰처럼 좁은 화면). 넓은 컴퓨터 화면에서는 가로로 펼쳐 보임 */
+function mmAutoW(){ return Math.max(MM_AUTO_W, (window.innerWidth||0) - 24); }
 function mmLayout(ctx){
   const lay = MM.tree && MM.tree.lay;
   if(lay==='v') return mmLayoutV(ctx);
   const h = mmLayoutH(ctx);
-  if(lay==='h' || h.W <= MM_AUTO_W) return h;
+  if(lay==='h' || h.W <= mmAutoW()) return h;
   return mmLayoutV(ctx);
 }
 function mmRR(ctx, x, y, w, h, r){
@@ -2694,6 +2696,7 @@ function mmOpen(attId){
   const base = a && a.mm ? mmClone(a.mm) : mmNew('');
   MM.tree = base.hidden ? base : { id:'sr'+Date.now().toString(36), t:'', hidden:true, ch:[base] };
   MM.sel = MM.tree.ch[0].id;
+  if(a && a.mm) mmKeepLay(MM.tree, a.ar);     // 노트에 보이던 그림과 같은 모양으로 열기(자동 배치가 다르게 고르면 그 배치로 고정)
   neEl('mm-editor').style.display = 'flex';
   neEl('mm-scroll').scrollTop = 0; neEl('mm-scroll').scrollLeft = 0;
   mmRender();
@@ -2729,6 +2732,11 @@ function mmPickLay(tree, ar){
     const rh = h.H/Math.max(h.W,320), rv = v.H/Math.max(v.W,320);
     return Math.abs(Math.log(rh/ar)) <= Math.abs(Math.log(rv/ar)) ? 'h' : 'v';
   }catch(e){ return ''; } finally { MM.tree = keep; }
+}
+function mmKeepLay(tree, ar){
+  if(tree.lay || !(ar > 0)) return;
+  const pick = mmPickLay(tree, ar); if(!pick) return;
+  if(mmLayoutOf(tree).mode !== pick) tree.lay = pick;
 }
 /* trees: 마인드맵 데이터 또는 {tree, ar}(저장된 그림 비율을 함께 줄 때) */
 function mmStudyOpen(trees, title, cat){
