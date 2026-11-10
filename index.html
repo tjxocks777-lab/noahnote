@@ -1194,7 +1194,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261110-L</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261110-M</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -4040,7 +4040,7 @@ function renderWrongQuestions(){
         <summary>
           <span class="wq-d">${lb.t}${lb.sub ? ` <small>${lb.sub}</small>` : ''}</span>
           <span class="wq-n">${g.length}개</span>
-          ${n>0 ? `<button type="button" class="wq-retry" data-key="${key}">🔁 다시 풀기 ${n}</button>` : ''}
+          ${n>0 ? `<button type="button" class="wq-retry" data-key="${key}">다시 풀기 ${n}</button>` : ''}
         </summary>
         <table class="qlist"><thead><tr><th>파트</th><th>문제</th><th>정답</th><th>틀린 횟수</th><th></th></tr></thead><tbody>${
           g.map(q=>`<tr>
@@ -4053,7 +4053,7 @@ function renderWrongQuestions(){
         }</tbody></table>
       </details>`;
     }).join('')
-    + `<div class="btn-row" style="margin-top:12px;"><button class="btn outline" id="wrong-variant-btn">🔁 틀린 문제로 변형 문제 만들기</button></div>`;
+    + `<div class="btn-row" style="margin-top:12px;"><button class="btn outline" id="wrong-variant-btn">틀린 문제로 변형 문제 만들기</button></div>`;
   const sorted = items.slice().sort((a,b)=> (b.wrongCount||0) - (a.wrongCount||0));
   document.getElementById('wrong-variant-btn').addEventListener('click', ()=>openVariantGen(sorted));
   container.querySelectorAll('.wrong-edit-btn').forEach(b=>b.addEventListener('click', ()=>editQuestion(b.dataset.id)));
@@ -4136,7 +4136,7 @@ function renderQuotaGauge(){
     const total = session.retryTotal || session.queue.length, cur = Math.min(session.index, total);
     el.innerHTML = `
       <div class="quota-top">
-        <span class="quota-title">🔁 틀린 문제 ${session.retryRound||1}라운드</span>
+        <span class="quota-title">틀린 문제 ${session.retryRound||1}라운드</span>
         <span class="quota-nums">${Math.min(cur+1,total)} / ${total}</span>
       </div>
       <div class="quota-bar"><div class="quota-fill" style="width:${total?Math.round(cur/total*100):0}%;"></div></div>
