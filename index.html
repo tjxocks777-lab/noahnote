@@ -888,13 +888,17 @@
   #tut-card .tut-next{border:none;border-radius:var(--r-pill);background:var(--hl);color:var(--on-hl);font:inherit;font-size:14px;font-weight:700;padding:11px 22px;cursor:pointer;box-shadow:0 2px 0 var(--sh-btn);}
   /* 학습일지 (노트 탭 > 일지) */
   .jr-edit{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-card);padding:16px;margin-bottom:22px;scroll-margin-top:12px;}
-  .jr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
+  .jr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
   .jr-day{font-family:var(--font-display);font-size:18px;color:var(--ink);min-width:0;}
   .jr-head input[type=date]{font-family:var(--font-body);font-size:12.5px;font-weight:700;color:var(--ink);background:var(--hl-soft);border:none;border-radius:var(--r-pill);padding:7px 12px;width:auto;flex:none;}
-  .jr-stat{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;}
-  #jr-text{display:block;min-height:170px;line-height:1.7;border-radius:var(--r-md);resize:vertical;margin-top:8px;}
-  .jr-foot{display:flex;align-items:center;justify-content:space-between;min-height:28px;margin-top:8px;}
-  .jr-status{font-size:12px;color:var(--pencil);}
+  .jr-box{min-height:150px;cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:var(--r-md);padding:12px 14px;font-size:14px;line-height:1.7;color:var(--ink);}
+  .jr-box.empty{color:var(--pencil);display:flex;align-items:center;justify-content:center;text-align:center;}
+  .jr-txt{white-space:pre-wrap;word-break:break-word;}
+  .jr-box .nv{margin-top:10px;}
+  .nv[data-jd]{cursor:zoom-in;}
+  .jr-box .nv[data-jd]::after{content:'🔍 눌러서 확대';position:absolute;right:6px;bottom:6px;z-index:6;background:rgba(22,35,63,.8);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;pointer-events:none;}
+  .jr-foot{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-height:28px;margin-top:8px;}
+  .jr-editb{color:var(--ink);font-weight:700;}
   .jr-del{background:none;border:none;color:var(--ink-soft);font:inherit;font-size:12.5px;cursor:pointer;padding:4px 6px;}
   .jr-del:hover{color:var(--red);}
   .jr-list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px;}
@@ -904,9 +908,10 @@
   .jr-month{font-size:12px;font-weight:700;color:var(--ink-soft);margin:14px 2px 6px;}
   .jr-card{display:block;width:100%;text-align:left;background:var(--card);border:1.5px solid transparent;border-radius:var(--r-lg);box-shadow:var(--sh-card);padding:12px 14px;margin-bottom:8px;cursor:pointer;color:var(--ink);font:inherit;}
   .jr-card.on{border-color:var(--hl);}
-  .jr-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;font-size:13.5px;}
-  .jr-card-stat{font-size:11.5px;color:var(--pencil);flex:none;}
+  .jr-card-top{margin-bottom:4px;font-size:13.5px;}
   .jr-card-body{font-size:13px;line-height:1.6;color:var(--ink-soft);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;}
+  .jr-thumb{max-height:110px;overflow:hidden;margin-top:8px;border-radius:var(--r-md);pointer-events:none;}
+  .jr-thumb .nv{margin-top:0;}
   .jr-none{font-size:13px;color:var(--pencil);text-align:center;padding:18px 0;}
 </style>
 </head>
@@ -996,8 +1001,8 @@
       <button class="list-toggle-btn" data-listview="note">요점</button>
       <button class="list-toggle-btn active" data-listview="memo">암기</button>
       <button class="list-toggle-btn" data-listview="wrong">오답</button>
-      <button class="list-toggle-btn" data-listview="favorite">즐겨찾기</button>
       <button class="list-toggle-btn" data-listview="journal">일지</button>
+      <button class="list-toggle-btn" data-listview="favorite">즐겨찾기</button>
     </div>
     <div style="margin-top:16px;"></div>
     <div id="memo-list"></div>
@@ -1218,7 +1223,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261110-N</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261110-O</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -2337,7 +2342,7 @@ const nvRO = ('ResizeObserver' in window) ? new ResizeObserver(es=>es.forEach(en
   const el = en.target, w = Math.round(en.contentRect.width);
   if(w !== el._w) requestAnimationFrame(()=>{ if(el.isConnected && Math.round(el.clientWidth) !== el._w) nvPaint(el); });
 })) : null;
-function nvSource(el){ return el.dataset.draft ? noteDraft : data.notes.find(n=>n.id===el.dataset.nid); }
+function nvSource(el){ return el.dataset.draft ? noteDraft : el.dataset.jd ? (data.journal||{})[el.dataset.jd] : data.notes.find(n=>n.id===el.dataset.nid); }
 function nvPaint(el){
   const src = nvSource(el);
   if(!src || !noteHasVisual(src)){ el.style.display = 'none'; return; }
@@ -2520,6 +2525,7 @@ function openNoteEditor(){
   neSetMode('text');
 }
 function closeNoteEditor(){
+  if(NEJ.on){ jrCloseEditor(); return; }   // 학습일지에서 연 편집기
   neEl('n-content').value = neEl('ne-text').value;
   noteDraft = {
     strokes: NE.strokes.slice(), att: NE.att.map(attCopy), freeH: +NE.freeH.toFixed(4),
@@ -3037,7 +3043,7 @@ function zoomGesture(sc, api){
 /* ----- 노트 그림 확대 보기: 요점 목록의 그림을 누르면 전체 화면에서 확대/축소·이동 ----- */
 const ZV = { z:1, src:null, baseW:0, hn:0, cv:null, bi:null, tok:0, t:0 };
 function zvOpen(nid){
-  const src = (data.notes||[]).find(n=>n.id===nid);
+  const src = String(nid).startsWith('jr:') ? Object.assign({ title: jrLabel(String(nid).slice(3), true) }, (data.journal||{})[String(nid).slice(3)]) : (data.notes||[]).find(n=>n.id===nid);
   if(!src || !noteHasVisual(src)) return;
   ZV.src = src; ZV.z = 1;
   neEl('zv-title').textContent = src.title || '';
@@ -4970,7 +4976,7 @@ function trashPurge(prune){
   const lim = Date.now() - TRASH_DAYS*864e5;
   const out = (data.trash||[]).filter(t=>t.at < lim);
   data.trash = (data.trash||[]).filter(t=>t.at >= lim);
-  if(prune) out.forEach(t=>{ if(t.kind==='note') pruneAtt(t.item.att, []); });
+  if(prune) out.forEach(t=>{ if(t.kind==='note' || t.kind==='journal') pruneAtt(t.item.att, []); });
 }
 function renderTrash(){
   const box = document.getElementById('trash-list'); if(!box) return;
@@ -4986,8 +4992,11 @@ function renderTrash(){
     const t = (data.trash||[]).find(x=>String(x.at)===b.dataset.at); if(!t) return;
     data.trash = data.trash.filter(x=>x!==t);
     if(t.kind==='journal'){
-      const j = data.journal = data.journal || {}, cur = j[t.item.date];
-      j[t.item.date] = { text: cur && cur.text && !cur.text.includes(t.item.text) ? t.item.text+'\n\n'+cur.text : t.item.text, at: Date.now() };
+      const j = data.journal = data.journal || {}, cur = j[t.item.date], back = Object.assign({}, t.item);
+      delete back.id; delete back.date;
+      if(cur && String(cur.text||'').trim() && !String(back.text||'').includes(cur.text)) back.text = String(back.text||'')+'\n\n'+cur.text;   // 그 날 새로 쓴 글이 있으면 이어 붙임
+      back.at = Date.now();
+      j[t.item.date] = back;
     }
     else if(t.kind==='note'){ data.notes.push(t.item); renderNotesListView(); }
     else { data.questions.push(t.item); renderCatSummary(); }
@@ -5483,7 +5492,8 @@ function blankCat(n){ const p=(n.part||'').trim(), t=(n.title||'').trim(); retur
 function renderBlankStudy(){
   const area = document.getElementById('blank-study-area'); if(!area) return;
   const sets = [];
-  (data.notes||[]).forEach(n=>{
+  const jns = Object.keys(data.journal||{}).sort().reverse().map(d=>({ part:'일지', title:jrLabel(d, true), att:data.journal[d].att, cz:data.journal[d].cz }));
+  (data.notes||[]).concat(jns).forEach(n=>{
     const trees = (n.att||[]).filter(a=>a.mm && mmHasBlank(a.mm)).map(a=>({ tree:a.mm, ar:a.ar }));
     const nm = trees.reduce((s,t)=>s+mmBlankCount(t.tree),0);
     if(trees.length) sets.push({ n, kind:'mm', trees, cnt:nm });
@@ -6445,54 +6455,84 @@ document.addEventListener('keydown', (e)=>{
   }
 });
 
-/* ---------- 학습일지 (노트 탭 > 일지): 날짜별로 그날 배운 내용을 적어 모아둠 · data.journal[날짜] = {text, at} ---------- */
-let jrDate = null, jrTimer = null, jrQuery = '';
+/* ---------- 학습일지 (노트 탭 > 일지) ----------
+   날짜별로 그날 배운 내용을 적어 모아둠 · data.journal[YYYY-MM-DD] = {text, at, strokes?, att?, freeH?, drawing?, cz?}
+   쓰기는 요점정리와 같은 전체화면 편집기(글·펜·형광펜·지우개·사진/PDF·마인드맵·글 빈칸)를 그대로 씀 */
+let jrDate = null, jrQuery = '';
+const NEJ = { on:false, prev:null, oldAtt:[], timer:null };
 const JR_WD = ['일','월','화','수','목','금','토'];
 function jrLabel(d, withYear, noYear){
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d||''); if(!m) return d||'';
   const y = +m[1], mo = +m[2], dd = +m[3], w = JR_WD[new Date(y, mo-1, dd).getDay()];
   return ((!noYear && (withYear || y!==new Date().getFullYear())) ? y+'년 ' : '') + mo+'월 '+dd+'일 ('+w+')';
 }
-function jrStat(d){ const s = histDay(d); return s.done ? `푼 문제 ${s.done} · 맞힘 ${s.correct}` : ''; }
-function jrFlush(){ if(jrTimer){ clearTimeout(jrTimer); jrTimer = null; saveData(); } }
-function jrToggleDel(){
-  const b = document.getElementById('jr-del'); if(b) b.style.display = (data.journal||{})[jrDate] ? '' : 'none';
+function jrHas(e){ return !!(e && (String(e.text||'').trim() || noteHasVisual(e))); }
+/* 편집기에 열려 있는 내용 → data.journal[jrDate]. 바뀐 게 있으면 true */
+function jrCommit(){
+  const text = neEl('ne-text').value;
+  const d = { strokes:NE.strokes, att:NE.att, freeH:+NE.freeH.toFixed(4), drawing:NE.base ? NE.base.url : '', drawingW:NE.base ? NE.base.w : 0, drawingH:NE.base ? NE.base.h : 0, cz:noteDraft.cz || null };
+  const cur = (data.journal||{})[jrDate];
+  if(!text.trim() && !noteHasVisual(d)){ if(cur){ delete data.journal[jrDate]; return true; } return false; }
+  const e = { text };
+  if(noteHasVisual(d)) Object.assign(e, noteVisualFields(d));
+  else if(d.cz) e.cz = { text:d.cz.text||'', bl:(d.cz.bl||[]).slice() };
+  if(cur){ const c2 = Object.assign({}, cur); delete c2.at; if(JSON.stringify(e)===JSON.stringify(c2)) return false; }
+  e.at = Date.now();
+  (data.journal = data.journal || {})[jrDate] = e;
+  return true;
 }
-function jrOnInput(){
-  const ta = document.getElementById('jr-text'); if(!ta) return;
-  const text = ta.value, cur = (data.journal||{})[jrDate];
-  if(text.trim()===''){ if(cur) delete data.journal[jrDate]; }
-  else if(!cur || cur.text!==text){ (data.journal = data.journal || {})[jrDate] = { text, at: Date.now() }; }
-  const st = document.getElementById('jr-status'); if(st) st.textContent = '';
-  clearTimeout(jrTimer);
-  jrTimer = setTimeout(async ()=>{
-    jrTimer = null; await saveData();
-    const s2 = document.getElementById('jr-status'); if(s2) s2.textContent = '저장됨';
-    jrRenderList(); jrToggleDel();
-  }, 800);
+function jrFlush(){ if(NEJ.on && jrCommit()) saveData(); }
+function jrOpenEditor(){
+  if(NEJ.on) return;
+  const cur = (data.journal||{})[jrDate] || null;
+  NEJ.prev = { content: neEl('n-content').value, draft: noteDraft };   // 넣기 탭에서 쓰던 요점정리 칸은 그대로 돌려놓음
+  NEJ.oldAtt = cur && cur.att ? cur.att.slice() : [];
+  neEl('n-content').value = cur ? (cur.text||'') : '';
+  noteDraft = noteDraftFrom(cur || {});
+  NEJ.on = true;
+  openNoteEditor();
+  clearInterval(NEJ.timer);
+  NEJ.timer = setInterval(()=>{ if(NEJ.on && jrCommit()) saveData(); }, 4000);   // 쓰는 도중에도 주기적으로 저장
+  if(!jrHas(cur)){ try{ neEl('ne-text').focus(); }catch(_){} }
+}
+function jrCloseEditor(){
+  clearInterval(NEJ.timer); NEJ.timer = null;
+  const changed = jrCommit();
+  const cur = (data.journal||{})[jrDate];
+  pruneAtt(NEJ.oldAtt, cur && cur.att ? cur.att : []);
+  neEl('n-content').value = NEJ.prev.content; noteDraft = NEJ.prev.draft; NEJ.on = false;
+  neEl('note-editor').style.display = 'none';
+  document.body.style.overflow = '';
+  refreshNoteContentBox();
+  if(changed) saveData();
+  renderJournal();
 }
 function renderJournal(){
   const box = document.getElementById('journal-area'); if(!box) return;
   const t = todayStr(); if(!jrDate || jrDate>t) jrDate = t;
-  const ent = (data.journal||{})[jrDate], stat = jrStat(jrDate);
+  const ent = (data.journal||{})[jrDate], has = jrHas(ent);
   box.innerHTML = `
     <div class="jr-edit" id="jr-edit">
       <div class="jr-head">
         <span class="jr-day">${jrDate===t ? '오늘 · ' : ''}${escapeHtml(jrLabel(jrDate))}</span>
         <input type="date" id="jr-date" value="${jrDate}" max="${t}" aria-label="날짜 바꾸기">
       </div>
-      ${stat ? `<div class="jr-stat">${stat}</div>` : ''}
-      <textarea id="jr-text" placeholder="${jrDate===t ? '오늘' : '이날'} 배운 내용을 적어요"></textarea>
-      <div class="jr-foot"><span id="jr-status" class="jr-status"></span><button type="button" id="jr-del" class="jr-del"${ent ? '' : ' style="display:none"'}>삭제</button></div>
+      <div class="jr-box${has ? '' : ' empty'}" id="jr-box"></div>
+      <div class="jr-foot"${has ? '' : ' style="display:none"'}><button type="button" id="jr-edit-btn" class="jr-del jr-editb">수정</button><button type="button" id="jr-del" class="jr-del">삭제</button></div>
     </div>
     <div id="jr-listbox" style="display:none;">
       <div class="jr-list-head"><span class="jr-list-title">모아보기 <span class="jr-count" id="jr-count"></span></span><input type="search" id="jr-q" placeholder="검색"></div>
       <div id="jr-list"></div>
     </div>`;
-  const ta = document.getElementById('jr-text'); ta.value = ent ? ent.text : '';
-  ta.addEventListener('input', jrOnInput);
-  ta.addEventListener('blur', jrFlush);
-  document.getElementById('jr-date').addEventListener('change', e=>{ jrFlush(); const v = e.target.value; jrDate = (v && v<=todayStr()) ? v : todayStr(); renderJournal(); });
+  const b = document.getElementById('jr-box');
+  if(has){
+    b.innerHTML = (String(ent.text||'').trim() ? `<div class="jr-txt">${escapeHtml(ent.text)}</div>` : '') + (noteHasVisual(ent) ? `<div class="nv" data-jd="${jrDate}"></div>` : '');
+    hydrateNV(b);
+    b.querySelectorAll('.nv[data-jd]').forEach(el=>el.addEventListener('click', e=>{ e.stopPropagation(); zvOpen('jr:'+el.dataset.jd); }));
+  } else b.textContent = '눌러서 쓰기';
+  b.addEventListener('click', jrOpenEditor);
+  document.getElementById('jr-edit-btn').addEventListener('click', jrOpenEditor);
+  document.getElementById('jr-date').addEventListener('change', e=>{ const v = e.target.value; jrDate = (v && v<=todayStr()) ? v : todayStr(); renderJournal(); });
   document.getElementById('jr-del').addEventListener('click', jrDelete);
   const q = document.getElementById('jr-q'); q.value = jrQuery;
   q.addEventListener('input', ()=>{ jrQuery = q.value; jrRenderList(); });
@@ -6501,21 +6541,22 @@ function renderJournal(){
 function jrRenderList(){
   const wrap = document.getElementById('jr-listbox'), box = document.getElementById('jr-list'); if(!wrap || !box) return;
   const j = data.journal || {};
-  const days = Object.keys(j).filter(d=>j[d] && String(j[d].text||'').trim()).sort().reverse();
+  const days = Object.keys(j).filter(d=>jrHas(j[d])).sort().reverse();
   wrap.style.display = days.length ? '' : 'none';
   document.getElementById('jr-count').textContent = '('+days.length+')';
   const q = jrQuery.trim().toLowerCase();
-  const shown = q ? days.filter(d=>String(j[d].text).toLowerCase().includes(q) || jrLabel(d, true).includes(q)) : days;
+  const shown = q ? days.filter(d=>String(j[d].text||'').toLowerCase().includes(q) || jrLabel(d, true).includes(q)) : days;
   if(!shown.length){ box.innerHTML = '<div class="jr-none">찾는 일지가 없어요</div>'; return; }
   let html = '', mon = '';
   shown.forEach(d=>{
     if(d.slice(0,7)!==mon){ mon = d.slice(0,7); html += `<div class="jr-month">${+d.slice(0,4)}년 ${+d.slice(5,7)}월</div>`; }
-    const st = jrStat(d);
-    html += `<button type="button" class="jr-card${d===jrDate ? ' on' : ''}" data-d="${d}"><div class="jr-card-top"><b>${escapeHtml(jrLabel(d, false, true))}</b>${st ? `<span class="jr-card-stat">${st}</span>` : ''}</div><div class="jr-card-body">${escapeHtml(String(j[d].text))}</div></button>`;
+    const e = j[d], txt = String(e.text||'').trim();
+    html += `<button type="button" class="jr-card${d===jrDate ? ' on' : ''}" data-d="${d}"><div class="jr-card-top"><b>${escapeHtml(jrLabel(d, false, true))}</b></div>${txt ? `<div class="jr-card-body">${escapeHtml(txt)}</div>` : ''}${noteHasVisual(e) ? `<div class="jr-thumb"><div class="nv" data-jd="${d}"></div></div>` : ''}</button>`;
   });
   box.innerHTML = html;
+  hydrateNV(box);
   box.querySelectorAll('.jr-card').forEach(c=>c.addEventListener('click', ()=>{
-    jrFlush(); jrDate = c.dataset.d; renderJournal();
+    jrDate = c.dataset.d; renderJournal();
     const ed = document.getElementById('jr-edit'); if(ed) ed.scrollIntoView({ behavior:'smooth', block:'start' });
   }));
 }
@@ -6523,7 +6564,7 @@ function jrDelete(){
   const ent = (data.journal||{})[jrDate]; if(!ent) return;
   const day = jrDate;
   showConfirmModal('이 날의 일지를 지울까요? 설정의 휴지통에서 되살릴 수 있어요.', async ()=>{
-    trashPut('journal', { id:'jr-'+day+'-'+Date.now(), date:day, text:ent.text, at:ent.at||0 });
+    trashPut('journal', Object.assign({ id:'jr-'+day+'-'+Date.now(), date:day }, ent));
     delete data.journal[day];
     await saveData(); renderJournal(); showToast('일지를 지웠어요');
   });
@@ -6546,7 +6587,7 @@ async function buildBackupJson(includeAtt, savedAt){
   const att = {};
   if(includeAtt){
     for(const s of Object.values(allSubjects)){
-      for(const n of (s.notes||[])){
+      for(const n of (s.notes||[]).concat(Object.values(s.journal||{}))){
         for(const a of (n.att||[])){
           if(att[a.id]) continue;
           const b = await AttDB.get(a.id);
@@ -6632,8 +6673,6 @@ function syncIsDirty(){ return syncSig() !== lsGet(SYNC_SIG_KEY); }
 function syncLineage(){ try{ const a = JSON.parse(lsGet(SYNC_LIN_KEY)||'[]'); return Array.isArray(a) ? a : []; }catch(_){ return []; } }
 /* 노트·마인드맵 편집 중이거나 학습 화면이 떠 있으면 가져온 내용으로 바꾸지 않고 잠시 미룸 */
 function syncUiBusy(){
-  const ae = document.activeElement;
-  if(ae && ae.id==='jr-text') return true;   // 일지를 쓰는 중에는 화면을 바꾸지 않음
   return ['note-editor','mm-editor','mm-study','cz','aipanel'].some(id=>{ const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none'; });
 }
 /* 가져온 내용을 지금 보고 있는 과목·탭 화면에 그대로 반영 (과목 선택 화면으로 돌려보내지 않음) */
@@ -6770,8 +6809,10 @@ function syncMergeJournal(L, R, B){   // 날짜별 일지: 한쪽만 고쳤으�
     if(sjs(l)===sjs(r)){ out[d] = r; continue; }
     if(b!==undefined){ if(sjs(l)===sjs(b)){ out[d] = r; continue; } if(sjs(r)===sjs(b)){ out[d] = l; continue; } }
     const lt = String((l&&l.text)||''), rt = String((r&&r.text)||''), la = (l&&l.at)||0, ra = (r&&r.at)||0;
-    if(lt.includes(rt)) out[d] = l; else if(rt.includes(lt)) out[d] = r;
-    else{ const older = la<=ra ? lt : rt, newer = la<=ra ? rt : lt; out[d] = { text: older+'\n\n'+newer, at: Math.max(la, ra) }; }
+    const lv = noteHasVisual(l), rv = noteHasVisual(r);
+    const text = lt.includes(rt) ? lt : rt.includes(lt) ? rt : (la<=ra ? lt+'\n\n'+rt : rt+'\n\n'+lt);
+    const vis = (lv && rv) ? (la>=ra ? l : r) : lv ? l : rv ? r : (la>=ra ? l : r);   // 필기·사진은 있는 쪽(둘 다 있으면 나중 것)
+    out[d] = Object.assign({}, vis, { text, at: Math.max(la, ra) });
   }
   return out;
 }
@@ -6819,7 +6860,7 @@ async function syncMeta(k){
 }
 function syncAttIds(){
   const ids=new Set();
-  for(const s of Object.values(allSubjects||{})) for(const n of (s.notes||[])) for(const a of (n.att||[])) ids.add(a.id);
+  for(const s of Object.values(allSubjects||{})) for(const n of (s.notes||[]).concat(Object.values(s.journal||{}))) for(const a of (n.att||[])) ids.add(a.id);
   return [...ids];
 }
 const syncAttInflight = new Map();
