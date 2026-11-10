@@ -1194,7 +1194,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261105-K</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261110-L</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -4313,7 +4313,7 @@ function retryList(key){
 function retryBtnHtml(){
   const m = todayMissed();
   if(!m.all.length) return '';
-  return `<div style="margin-top:16px;"><button class="btn" id="retry-open-btn" type="button">🔁 오늘 틀린 문제 다시 풀기 (${m.all.length}개)</button></div>`;
+  return `<div style="margin-top:16px;"><button class="btn" id="retry-open-btn" type="button">오늘 틀린 문제 다시 풀기 (${m.all.length}개)</button></div>`;
 }
 // 남은 오답 수의 라운드별 변화: 12 → 5 → 2 (마지막 숫자가 지금 라운드)
 function retryTrail(finalLeft){
