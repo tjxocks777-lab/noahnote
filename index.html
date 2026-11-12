@@ -1223,7 +1223,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261112-P</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261112-Q</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -3924,18 +3924,32 @@ function reorderAvoidingRepeatAnswers(arr){
   return a;
 }
 
-// 선택 학습: 고른 단원의 문제를 복습 시기·숙달·하루 분량과 상관없이 전부 모아 섞어서 출제 (오늘 이미 푼 문제는 제외)
+// 선택 학습: 고른 단원의 문제를 섞어서 출제. 숙달 못 한/안 푼 문제는 복습일이 안 됐어도 많이 내고,
+// 숙달한 문제는 설정한 복습 간격(1→3→7…)이 된 것만 하루 masteredLimit개까지. 오늘 이미 푼 문제는 제외.
 function reviewedToday(q, t){
   if(!q.lastReviewed) return false;
   const d = new Date(q.lastReviewed);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0') === t;
 }
-function selectedPool(){
-  const t = todayStr();
-  return data.questions.filter(q=>reviewCats.has(q.part||'기타') && !reviewedToday(q, t));
+function selectedQueue(){
+  const t = todayStr(), limit = effDailyLimit();
+  const pool = data.questions.filter(q=>reviewCats.has(q.part||'기타') && !reviewedToday(q, t));
+  const mast = pool.filter(q=>q.mastered && q.nextReviewDate<=t)
+    .sort((x,y)=> x.nextReviewDate < y.nextReviewDate ? -1 : 1).slice(0, data.settings.masteredLimit ?? 5);
+  const groups = {};
+  pool.filter(q=>!q.mastered)
+    .sort((x,y)=> (x.correctCount||0)-(y.correctCount||0) || (x.nextReviewDate<=t?0:1)-(y.nextReviewDate<=t?0:1) || (x.nextReviewDate < y.nextReviewDate ? -1 : 1))
+    .forEach(q=>{ (groups[q.part||'기타'] = groups[q.part||'기타'] || []).push(q); });
+  const lists = Object.keys(groups).map(k=>groups[k]);
+  const total = lists.reduce((n,l)=>n+l.length,0);
+  const room = Math.max(0, limit - mast.length), rest = [];
+  for(let r=0; rest.length<room && rest.length<total; r++){
+    shuffleArray(lists).forEach(l=>{ if(l[r] && rest.length<room) rest.push(l[r]); });
+  }
+  return mast.concat(rest);
 }
 function computeDue(){
-  if(reviewCats.size>0) return reorderAvoidingRepeatAnswers(selectedPool());
+  if(reviewCats.size>0) return reorderAvoidingRepeatAnswers(selectedQueue());
   const t = todayStr();
   const limit = effDailyLimit();
   const dueAll = data.questions
@@ -3975,7 +3989,7 @@ function renderCategoryFilter(){
   }
   const open = document.getElementById('cat-pick-panel').style.display==='block';
   document.getElementById('cat-pick-btn').innerHTML =
-    `<span>🗂 ${escapeHtml(label)} <span style="font-weight:400;color:var(--ink-soft);">· ${due===null ? `${selectedPool().length}문제` : `복습 ${due}`}</span></span><span class="arrow">${open?'▲':'▼'}</span>`;
+    `<span>🗂 ${escapeHtml(label)} <span style="font-weight:400;color:var(--ink-soft);">· ${due===null ? `${selectedQueue().length}문제` : `복습 ${due}`}</span></span><span class="arrow">${open?'▲':'▼'}</span>`;
   document.getElementById('cat-pick-btn').parentElement.dataset.open = open ? '1' : '0';
   if(open) renderCatPickList();
 }
