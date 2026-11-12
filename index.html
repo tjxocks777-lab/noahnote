@@ -2349,7 +2349,9 @@ function nvPaint(el){
   el.style.display = '';
   const W = el.clientWidth; el._w = W; if(!W) return;
   const att = src.att || [], strokes = src.strokes || [];
-  const attHn = att.reduce((s,a)=>s+a.ar, 0);
+  // 마인드맵은 저장된 그림(가로로 길어 눌림) 대신 카드 너비에 맞춰 다시 그린다
+  const arOf = a => (a && a.mm) ? (mmCardAr(a.mm, W) || a.ar) : a.ar;
+  const attHn = att.reduce((s,a)=>s+arOf(a), 0);
   let inkB = 0;
   strokes.forEach(s=>{ if(s.t!=='e') inkB = Math.max(inkB, strokeBB(s).y1 + s.w); });
   if(src.drawing && src.drawingW) inkB = Math.max(inkB, src.drawingH/src.drawingW);
@@ -2358,9 +2360,17 @@ function nvPaint(el){
   el.className = 'nv layered'; el.style.height = hpx+'px'; el.innerHTML = '';
   let top = 0;
   att.forEach(a=>{
+    const ar = arOf(a);
+    if(a.mm){
+      const cv = document.createElement('canvas');
+      cv.style.cssText = `position:absolute;left:0;top:${top*W}px;`;
+      el.appendChild(cv);
+      try{ mmPaintInto(cv, a.mm, W); top += ar; return; }
+      catch(e){ cv.remove(); }   // 다시 그리기에 실패하면 저장된 그림으로 되돌아간다
+    }
     const img = document.createElement('img'); img.alt = '첨부';
-    img.style.cssText = `top:${top*W}px;height:${a.ar*W}px;`;
-    el.appendChild(img); top += a.ar;
+    img.style.cssText = `top:${top*W}px;height:${ar*W}px;`;
+    el.appendChild(img); top += ar;
     attUrl(a).then(u=>{ if(u && el._tok===tok) img.src = u; });
   });
   if(strokes.length || src.drawing){
@@ -2777,7 +2787,7 @@ function mmLayoutV(ctx){
 /* 배치: lay='v' 세로형, lay='h' 가로형, 없으면 자동 — 가로형이 이 폭(px)보다 넓어지면 노트에서 작게 줄어들므로 세로형으로 바꿔 크게 보이게 함 */
 const MM_AUTO_W = 520;
 /* 자동 배치: 가로형이 화면 너비 안에 들어가면 가로형, 아니면 세로형(폰처럼 좁은 화면). 넓은 컴퓨터 화면에서는 가로로 펼쳐 보임 */
-function mmAutoW(){ return Math.max(MM_AUTO_W, (window.innerWidth||0) - 24); }
+let mmAutoW = function(){ return Math.max(MM_AUTO_W, (window.innerWidth||0) - 24); };
 function mmLayout(ctx){
   const lay = MM.tree && MM.tree.lay;
   if(lay==='v') return mmLayoutV(ctx);
@@ -2938,6 +2948,38 @@ function mmAdd(asChild){
 /* ----- 마인드맵 빈칸 학습: 빈칸(bl)으로 지정한 칸을 가리고, 눌러서 확인 / 암기 항목으로 보내기 ----- */
 function mmBlankCount(tree){ let n=0; (function w(x){ if(x.bl) n++; (x.ch||[]).forEach(w); })(tree); return n; }
 function mmHasBlank(tree){ return !!(tree && mmBlankCount(tree)); }
+/* 저장된 그림 대신 트리에서 다시 그린다 — 카드 너비에 맞춰 가로형이 넘치면 세로형으로 자동 전환되므로
+   폰에서 가로로 긴 마인드맵이 눌려서 글자가 안 보이던 문제가 사라진다. (노트 카드 미리보기 전용) */
+function mmLayoutFor(tree, width){
+  const keepTree = MM.tree, keepAuto = mmAutoW;
+  MM.tree = tree;
+  // eslint-disable-next-line no-global-assign
+  mmAutoW = function(){ return Math.max(240, width); };
+  try{ return mmLayout(document.createElement('canvas').getContext('2d')); }
+  finally{ MM.tree = keepTree; mmAutoW = keepAuto; }
+}
+function mmPaintInto(cv, tree, width){
+  const L = mmLayoutFor(tree, width);
+  const scale = Math.min(1, width / Math.max(L.W, 1));
+  const cssW = width, cssH = Math.max(20, Math.round(L.H * scale));
+  const dpr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, 2, 8000 / Math.max(cssH, 1)));
+  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+  cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  ctx.clearRect(0, 0, L.W, L.H);
+  const keep = MM.tree; MM.tree = tree;
+  try{ mmDraw(ctx, L, null); } finally { MM.tree = keep; }
+  return cssH;
+}
+// 카드에 그릴 높이(세로 비율)를 미리 재둔다 — 그려야 높이를 알 수 있어서 배치 계산만 먼저 한다
+function mmCardAr(tree, width){
+  try{
+    const L = mmLayoutFor(tree, width);
+    const scale = Math.min(1, width / Math.max(L.W, 1));
+    return Math.max(0.05, (L.H * scale) / width);
+  }catch(e){ return 0; }
+}
 function mmLayoutOf(tree){
   const keep = MM.tree; MM.tree = tree;
   try{ return mmLayout(document.createElement('canvas').getContext('2d')); } finally { MM.tree = keep; }
