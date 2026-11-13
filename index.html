@@ -176,6 +176,18 @@
   .picker-add-row{display:none;gap:8px;margin-top:12px;}
   .picker-add-row.on{display:flex;}
   .picker-add-row input{flex:1;min-width:0;}
+  .picker-sync{
+    display:none;background:var(--hl-soft,#FCEFB8);border:1px solid var(--hl,#F7D774);
+    border-radius:var(--r-lg);padding:14px 16px;margin-bottom:16px;
+  }
+  .picker-sync p{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--ink);}
+  .picker-sync .row{display:flex;gap:8px;}
+  .picker-sync button{
+    font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+    border-radius:var(--r-pill);padding:9px 14px;border:1px solid var(--ink);
+    background:var(--ink);color:var(--card);
+  }
+  .picker-sync button.ghost{background:none;color:var(--ink-soft);border-color:var(--line);font-weight:500;}
   .picker-foot{display:flex;justify-content:center;gap:18px;margin-top:28px;}
   .picker-foot button{
     background:none;border:none;padding:6px 2px;cursor:pointer;font-family:inherit;
@@ -969,6 +981,13 @@
     <p class="picker-sub" id="picker-sub"></p>
     <div id="picker-block" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">이 화면에서는 <b>저장이 막혀 있어요.</b> 지금 입력하거나 복구해도 창을 닫으면 사라져요. 사파리(또는 크롬)에서 <b>앱 인터넷 주소(workers.dev)</b>로 직접 열어주세요. 파일 앱·카톡·미리보기에서 열면 이렇게 돼요.</div>
     <div id="picker-warn" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">저장된 데이터를 읽지 못했어요. <b>새로 입력하지 말고</b> 아래 "백업 파일에서 복구"로 백업 파일을 불러와 주세요.</div>
+    <div class="picker-sync" id="picker-sync">
+      <p>지금은 이 기기에만 저장돼요. 브라우저 기록을 지우거나 기기를 바꾸면 사라집니다. 동기화를 켜면 폰과 PC가 자동으로 맞춰져요.</p>
+      <div class="row">
+        <button type="button" id="picker-sync-go">동기화 켜기</button>
+        <button type="button" class="ghost" id="picker-sync-later">나중에</button>
+      </div>
+    </div>
     <div id="subject-list"></div>
     <button class="picker-new" id="picker-new-btn" type="button">공책 새로 만들기</button>
     <div class="picker-add-row" id="picker-add-row">
@@ -1267,7 +1286,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261113-T</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261113-U</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -6474,6 +6493,21 @@ function subjectSummary(name){
   return { due, mastered, total: qs.length, next, last };
 }
 
+/* 동기화는 설정에서 암호를 넣어야 켜지는 opt-in 이라, 모르고 쓰면 데이터가 이 기기에만 남는다.
+   잃을 게 생겼을 때(카드 20장 이상) 한 번 알려주고, "나중에" 를 누르면 다시 묻지 않는다. */
+function renderSyncNotice(names, sums){
+  const box = document.getElementById('picker-sync');
+  if(!box) return;
+  let dismissed = false;
+  try{ dismissed = localStorage.getItem('noah-note-sync-hint') === 'off'; }catch(_){}
+  let total = 0;
+  names.forEach(n=>{ total += sums[n].total; });
+  const show = !dismissed && total >= 20 &&
+    (typeof syncHostOk === 'function' ? syncHostOk() : false) &&
+    (typeof syncEnabled === 'function' ? !syncEnabled() : false);
+  box.style.display = show ? 'block' : 'none';
+}
+
 function whenText(day){
   if(!day) return '';
   const t = todayStr();
@@ -6523,6 +6557,8 @@ function renderSubjectList(){
   if(sub) sub.textContent = totalDue
     ? `오늘 복습할 카드 ${totalDue.toLocaleString('ko-KR')}장이 기다리고 있어요`
     : '오늘 복습할 카드는 없어요. 쉬어가도 좋아요.';
+
+  renderSyncNotice(names, sums);
 
   container.innerHTML = names.map(name=>{
     const s = sums[name];
@@ -6654,6 +6690,25 @@ document.getElementById('picker-new-btn').addEventListener('click', ()=>{
 });
 
 /* 공책 정리: 삭제 버튼은 여기서만 나온다 (과목을 누르려다 잘못 지우지 않게) */
+document.getElementById('picker-sync-later').addEventListener('click', ()=>{
+  try{ localStorage.setItem('noah-note-sync-hint','off'); }catch(_){}
+  document.getElementById('picker-sync').style.display = 'none';
+});
+
+document.getElementById('picker-sync-go').addEventListener('click', ()=>{
+  const names = Object.keys(allSubjects);
+  if(!names.length) return;
+  selectSubject((lastSubject && allSubjects[lastSubject]) ? lastSubject : names[0]);
+  document.querySelector('.tab-btn[data-tab="settings"]').click();
+  const blk = document.getElementById('sync-block');
+  const head = blk && blk.querySelector('h3');
+  if(blk && head && !blk.classList.contains('open')) head.click();   // 접혀 있으면 펼친다
+  setTimeout(()=>{
+    const el = document.getElementById('sync-pass');
+    if(el){ el.scrollIntoView({block:'center'}); el.focus(); }
+  }, 120);
+});
+
 document.getElementById('picker-edit-btn').addEventListener('click', ()=>{
   pickerEditing = !pickerEditing;
   document.getElementById('picker-edit-btn').textContent = pickerEditing ? '정리 끝내기' : '공책 정리';
