@@ -10,10 +10,23 @@ import { runDue } from '../functions/_lib/push-lib.js';
 
 const ROUTES = { '/api/sync': sync, '/api/scan': scan, '/api/group': group, '/api/push': push, '/api/push-run': pushRun };
 
+/* 앱 화면(/ 과 /index.html)은 캐시에 남으면 배포해도 옛 화면이 계속 나온다.
+   _headers 는 요청 경로로 매칭돼서 "/" 에는 규칙이 안 붙었고, 실제로 그 문제가 났다.
+   여기서 직접 no-store 를 붙여 두면 경로와 상관없이 항상 최신이 나간다.
+   (wrangler.jsonc 의 run_worker_first 에 "/" 와 "/index.html" 이 함께 들어가야 이 코드로 들어온다) */
+const SHELL = new Set(['/', '/index.html']);
+
 export default {
   async fetch(request, env, ctx) {
-    const h = ROUTES[new URL(request.url).pathname];
-    if (!h) return env.ASSETS.fetch(request);
+    const path = new URL(request.url).pathname;
+    const h = ROUTES[path];
+    if (!h) {
+      const res = await env.ASSETS.fetch(request);
+      if (!SHELL.has(path)) return res;
+      const out = new Response(res.body, res);
+      out.headers.set('Cache-Control', 'no-store, must-revalidate');
+      return out;
+    }
     try { return await h({ request, env, ctx }); }
     catch (e) { return j({ error: String((e && e.message) || e) }, 500); }
   },
