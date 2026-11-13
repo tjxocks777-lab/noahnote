@@ -1286,7 +1286,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261113-U</span></p>
+    <p style="font-size:11.5px;color:var(--pencil);text-align:center;margin:18px 0 6px;">앱 버전 <span id="app-ver">20261113-V</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -3063,6 +3063,21 @@ function mmPaintInto(cv, tree, width){
   try{ mmDraw(ctx, L, null); } finally { MM.tree = keep; }
   return cssH;
 }
+/* 확대 보기용: 배치를 고른 뒤 그 자연 크기로 한 번만 그린다.
+   확대는 CSS 가 늘리므로, 줌을 바꿔도 가로↔세로가 뒤집히지 않는다.
+   돌려주는 값은 세로/가로 비율. */
+function mmPaintNatural(cv, tree, pickWidth){
+  const L = mmLayoutFor(tree, pickWidth);
+  const k = Math.max(0.5, Math.min(2, 8000 / Math.max(L.W, L.H, 1)));
+  cv.width = Math.round(L.W * k); cv.height = Math.round(L.H * k);
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  ctx.clearRect(0, 0, L.W, L.H);
+  const keep = MM.tree; MM.tree = tree;
+  try{ mmDraw(ctx, L, null); } finally { MM.tree = keep; }
+  return L.H / Math.max(L.W, 1);
+}
+
 // 카드에 그릴 높이(세로 비율)를 미리 재둔다 — 그려야 높이를 알 수 있어서 배치 계산만 먼저 한다
 function mmCardAr(tree, width){
   try{
@@ -3191,15 +3206,32 @@ function zvBuild(){
   const att = src.att || [], strokes = src.strokes || [];
   let inkB = 0; strokes.forEach(st=>{ if(st.t!=='e') inkB = Math.max(inkB, strokeBB(st).y1 + st.w); });
   if(src.drawing && src.drawingW) inkB = Math.max(inkB, src.drawingH/src.drawingW);
-  const hn = ZV.hn = Math.max(att.reduce((t,a)=>t+a.ar, 0), inkB, 0.05);
+
+  /* 마인드맵은 저장된 그림 대신 트리에서 다시 그린다 — 노트 카드와 같은 모양이 되도록.
+     배치는 화면 폭으로 한 번만 고르고(확대해도 안 뒤집힘), 캔버스는 자연 크기로 한 번만 그린다. */
   const tok = ++ZV.tok;
   box.innerHTML = ''; ZV.cv = null; ZV.bi = null;
+  const mmCv = {};
+  att.forEach(a=>{
+    if(!a.mm) return;
+    try{
+      const cv = document.createElement('canvas');
+      mmCv[a.id] = { cv, ar: mmPaintNatural(cv, a.mm, ZV.baseW) };
+    }catch(e){ delete mmCv[a.id]; }   // 실패하면 저장된 그림으로
+  });
+  const arOf = a => (mmCv[a.id] ? mmCv[a.id].ar : a.ar);
+
+  const hn = ZV.hn = Math.max(att.reduce((t,a)=>t+arOf(a), 0), inkB, 0.05);
   let top = 0;
   att.forEach(a=>{
-    const img = document.createElement('img'); img.alt = '첨부'; img.draggable = false;
-    img.style.top = (top/hn*100)+'%'; img.style.height = (a.ar/hn*100)+'%';
-    box.appendChild(img); top += a.ar;
-    attUrl(a).then(u=>{ if(u && ZV.tok===tok) img.src = u; });
+    const ar = arOf(a);
+    const hit = mmCv[a.id];
+    const el = hit ? hit.cv : document.createElement('img');
+    if(!hit){ el.alt = '첨부'; el.draggable = false; }
+    el.style.position = 'absolute'; el.style.left = '0'; el.style.width = '100%';
+    el.style.top = (top/hn*100)+'%'; el.style.height = (ar/hn*100)+'%';
+    box.appendChild(el); top += ar;
+    if(!hit) attUrl(a).then(u=>{ if(u && ZV.tok===tok) el.src = u; });
   });
   if(strokes.length || src.drawing){
     const cv = document.createElement('canvas'); box.appendChild(cv); ZV.cv = cv;
