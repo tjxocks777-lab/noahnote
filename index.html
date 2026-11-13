@@ -133,23 +133,55 @@
   #subject-picker{min-height:100vh;background:var(--paper);}
   .picker-inner{max-width:480px;margin:0 auto;padding:60px 20px;}
   .picker-title{
-    font-family:var(--font-display);font-size:22px;
-    margin:0 0 24px;text-align:center;
+    font-family:var(--font-display);font-size:25px;
+    margin:0 0 5px;color:var(--ink);
   }
+  .picker-sub{margin:0 0 22px;font-size:13.5px;color:var(--ink-soft);}
+  /* 과목 = 책장에 꽂힌 공책. 왼쪽 색 책등으로 이름을 읽기 전에 눈으로 구분된다. */
   .subject-row{
-    display:flex;justify-content:space-between;align-items:center;gap:10px;
+    display:flex;align-items:stretch;gap:0;width:100%;text-align:left;
     background:var(--card);border:1px solid var(--line);
-    padding:16px 18px;margin-bottom:8px;cursor:pointer;
+    border-radius:6px var(--r-lg) var(--r-lg) 6px;
+    padding:0;margin-bottom:12px;cursor:pointer;overflow:hidden;
+    box-shadow:var(--sh-card);font-family:inherit;color:inherit;
   }
   .subject-row:hover{border-color:var(--ink);}
-  .subject-row-name{font-family:var(--font-display);font-size:15px;}
+  .subject-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+  .subject-spine{flex:none;width:14px;align-self:stretch;background:var(--ink);}
+  .subject-body{flex:1;min-width:0;padding:18px 16px 16px;}
+  .subject-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .subject-row-name{font-family:var(--font-display);font-size:19px;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .subject-when{flex:none;font-size:12px;color:var(--ink-soft);}
+  .subject-meta{display:flex;align-items:center;gap:7px;margin-top:12px;flex-wrap:wrap;}
+  .subject-due{background:var(--hl);color:var(--on-hl);font-family:var(--font-display);
+    font-size:18px;line-height:1;padding:5px 12px;border-radius:8px;}
+  .subject-due-label{font-size:13px;color:var(--ink-soft);}
+  .subject-prog{margin-left:auto;font-size:12px;color:var(--ink-soft);}
+  .subject-rest{font-size:13px;color:var(--ink-soft);}
+  .subject-row.is-rest{box-shadow:none;}
   .subject-del-btn{
-    background:none;border:none;color:var(--pencil);text-decoration:underline;
-    font-size:12px;cursor:pointer;flex:none;
+    background:none;border:1px solid var(--line);border-radius:var(--r-pill);
+    color:var(--red);font-size:12.5px;font-weight:700;cursor:pointer;flex:none;
+    padding:7px 13px;margin-top:12px;font-family:inherit;
   }
-  .subject-del-btn:hover{color:var(--red);}
-  .picker-add-row{display:flex;gap:8px;margin-top:18px;}
-  .picker-add-row input{flex:1;}
+  .subject-del-btn:hover{background:var(--red-soft);border-color:var(--red);}
+  .picker-new{
+    width:100%;background:none;border:1.5px dashed #D9D0B8;
+    border-radius:6px var(--r-lg) var(--r-lg) 6px;padding:17px;
+    font-size:14.5px;font-weight:500;color:var(--ink-soft);
+    cursor:pointer;font-family:inherit;
+  }
+  .picker-new:hover{border-color:var(--ink);color:var(--ink);}
+  .picker-add-row{display:none;gap:8px;margin-top:12px;}
+  .picker-add-row.on{display:flex;}
+  .picker-add-row input{flex:1;min-width:0;}
+  .picker-foot{display:flex;justify-content:center;gap:18px;margin-top:28px;}
+  .picker-foot button{
+    background:none;border:none;padding:6px 2px;cursor:pointer;font-family:inherit;
+    font-size:13px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px;
+  }
+  .picker-foot button:hover{color:var(--ink);}
 
   /* 하단 고정 탭바 (앱 스타일) */
   nav.tabs{
@@ -933,14 +965,19 @@
 
 <div id="subject-picker" style="display:none;">
   <div class="picker-inner">
-    <h2 class="picker-title">과목 선택</h2>
+    <h2 class="picker-title">어느 공책을 펼칠까요</h2>
+    <p class="picker-sub" id="picker-sub"></p>
     <div id="picker-block" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">이 화면에서는 <b>저장이 막혀 있어요.</b> 지금 입력하거나 복구해도 창을 닫으면 사라져요. 사파리(또는 크롬)에서 <b>앱 인터넷 주소(workers.dev)</b>로 직접 열어주세요. 파일 앱·카톡·미리보기에서 열면 이렇게 돼요.</div>
     <div id="picker-warn" style="display:none;border:1px solid #D64545;background:#fff;color:#16233F;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;">저장된 데이터를 읽지 못했어요. <b>새로 입력하지 말고</b> 아래 "백업 파일에서 복구"로 백업 파일을 불러와 주세요.</div>
     <div id="subject-list"></div>
-    <button class="btn outline" id="picker-restore-btn" type="button" style="width:100%;margin-top:12px;">백업 파일에서 복구</button>
-    <div class="picker-add-row">
-      <input type="text" id="new-subject-input" placeholder="새 과목 이름">
+    <button class="picker-new" id="picker-new-btn" type="button">공책 새로 만들기</button>
+    <div class="picker-add-row" id="picker-add-row">
+      <input type="text" id="new-subject-input" placeholder="새 과목 이름" autocomplete="off">
       <button class="btn" id="new-subject-btn">추가</button>
+    </div>
+    <div class="picker-foot">
+      <button type="button" id="picker-restore-btn">백업에서 복구</button>
+      <button type="button" id="picker-edit-btn">공책 정리</button>
     </div>
   </div>
 </div>
@@ -6384,20 +6421,110 @@ document.getElementById('save-settings-btn').addEventListener('click', async ()=
 
 /* ---------- INIT ---------- */
 /* ---------- 과목 선택 (커버 / 피커) ---------- */
+/* 공책 책등 색. 이름에서 정해지므로 같은 과목은 기기가 바뀌어도 같은 색이다. */
+const SPINE_COLORS = ['#1E2A47','#2F8A66','#D0544A','#B07A1E','#5A4A8A','#1F6F8B'];
+function spineColor(name){
+  let h = 0;
+  for(let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) >>> 0;
+  return SPINE_COLORS[h % SPINE_COLORS.length];
+}
+
+/* 과목 하나의 요약. 지금 열려 있는 과목은 allSubjects 쪽이 아직 안 맞춰졌을 수 있어
+   statsAll() 과 같은 방식으로 data 를 본다. */
+function subjectSummary(name){
+  const t = todayStr();
+  const sd = (name===currentSubject) ? data : (allSubjects[name] || {});
+  const qs = Array.isArray(sd.questions) ? sd.questions : [];
+  let due = 0, mastered = 0, next = '';
+  qs.forEach(q=>{
+    if(q.mastered) mastered++;
+    const d = q.nextReviewDate || '';
+    if(d && d <= t) due++;
+    else if(d && (!next || d < next)) next = d;
+  });
+  let last = '';
+  Object.keys(sd.history || {}).forEach(d=>{
+    const day = sd.history[d];
+    const done = Object.values(day||{}).reduce((n,c)=>n+(c.done||0), 0);
+    if(done > 0 && d > last) last = d;
+  });
+  return { due, mastered, total: qs.length, next, last };
+}
+
+function whenText(day){
+  if(!day) return '';
+  const t = todayStr();
+  if(day === t) return '오늘';
+  if(day === addDays(t,-1)) return '어제';
+  if(day === addDays(t,1)) return '내일';
+  if(day === addDays(t,2)) return '모레';
+  for(let i=2;i<=7;i++){ if(day === addDays(t,-i)) return i + '일 전'; }
+  return day.slice(5).replace('-','월 ') + '일';
+}
+
+let pickerEditing = false, pickerAddOpen = false;
+
 function renderSubjectList(){
   document.getElementById('picker-block').style.display = storageBlocked ? 'block' : 'none';
   document.getElementById('picker-warn').style.display = (loadFailed && !storageBlocked) ? 'block' : 'none';
   const container = document.getElementById('subject-list');
+  const sub = document.getElementById('picker-sub');
   const names = Object.keys(allSubjects).sort((a,b)=>a.localeCompare(b,'ko'));
+
+  const addRow = document.getElementById('picker-add-row');
+  const newBtn = document.getElementById('picker-new-btn');
+  const editBtn = document.getElementById('picker-edit-btn');
+  if(editBtn) editBtn.style.display = names.length ? '' : 'none';
+
+  // 공책이 없으면 처음부터 열어 두고, 있으면 "공책 새로 만들기"를 누를 때만 연다
+  const open = (names.length===0) || pickerAddOpen;
+  if(addRow) addRow.classList.toggle('on', open);
+  if(newBtn) newBtn.style.display = open ? 'none' : '';
+
   if(names.length===0){
-    container.innerHTML = `<div class="empty">아직 과목이 없어요. 아래에서 첫 과목을 만들어보세요.</div>`;
+    if(sub) sub.textContent = '첫 공책을 만들면 여기에 모여요.';
+    container.innerHTML = '';
+    pickerEditing = false;
     return;
   }
-  container.innerHTML = names.map(name=>`
-    <div class="subject-row" data-name="${escapeAttr(name)}">
-      <span class="subject-row-name">${escapeHtml(name)}</span>
-      <button class="subject-del-btn" data-name="${escapeAttr(name)}">삭제</button>
-    </div>`).join('');
+
+  const sums = {};
+  let totalDue = 0;
+  names.forEach(n=>{ sums[n] = subjectSummary(n); totalDue += sums[n].due; });
+
+  // 오늘 할 게 있는 공책을 먼저, 많은 순서로. 그다음은 최근에 본 순서, 마지막은 이름순.
+  names.sort((a,b)=>
+    (sums[b].due - sums[a].due) ||
+    ((sums[b].last||'') > (sums[a].last||'') ? 1 : (sums[b].last||'') < (sums[a].last||'') ? -1 : 0) ||
+    a.localeCompare(b,'ko'));
+  if(sub) sub.textContent = totalDue
+    ? `오늘 복습할 카드 ${totalDue.toLocaleString('ko-KR')}장이 기다리고 있어요`
+    : '오늘 복습할 카드는 없어요. 쉬어가도 좋아요.';
+
+  container.innerHTML = names.map(name=>{
+    const s = sums[name];
+    const prog = s.total
+      ? `${s.total.toLocaleString('ko-KR')}장 중 ${s.mastered.toLocaleString('ko-KR')}장 숙달`
+      : '아직 비어 있어요';
+    const right = s.due
+      ? `<span class="subject-due">${s.due}</span><span class="subject-due-label">장 복습</span>`
+      : `<span class="subject-rest">${s.next ? '다음 복습은 ' + escapeHtml(whenText(s.next)) : '아직 비어 있어요'}</span>`;
+    return `
+    <button type="button" class="subject-row${s.due ? '' : ' is-rest'}" data-name="${escapeAttr(name)}">
+      <span class="subject-spine" style="background:${spineColor(name)};"></span>
+      <span class="subject-body">
+        <span class="subject-head">
+          <span class="subject-row-name">${escapeHtml(name)}</span>
+          <span class="subject-when">${s.last ? escapeHtml(whenText(s.last)) + ' 공부함' : '아직 안 봤어요'}</span>
+        </span>
+        <span class="subject-meta">
+          ${right}
+          <span class="subject-prog">${escapeHtml(prog)}</span>
+        </span>
+        ${pickerEditing ? `<button type="button" class="subject-del-btn" data-name="${escapeAttr(name)}">이 공책 삭제</button>` : ''}
+      </span>
+    </button>`;
+  }).join('');
 
   container.querySelectorAll('.subject-row').forEach(row=>{
     row.addEventListener('click', ()=>selectSubject(row.dataset.name));
@@ -6488,10 +6615,25 @@ document.getElementById('new-subject-btn').addEventListener('click', ()=>{
   if(allSubjects[name]){ input.value=''; selectSubject(name); return; }
   allSubjects[name] = emptySubjectData();
   input.value = '';
+  pickerAddOpen = false;
   selectSubject(name);
 });
 document.getElementById('new-subject-input').addEventListener('keydown', (e)=>{
   if(e.key==='Enter') document.getElementById('new-subject-btn').click();
+});
+
+/* 새 공책: 평소엔 입력칸을 숨겨 두고 누르면 연다 (첫 방문처럼 공책이 없으면 처음부터 열려 있다) */
+document.getElementById('picker-new-btn').addEventListener('click', ()=>{
+  pickerAddOpen = true;
+  renderSubjectList();
+  document.getElementById('new-subject-input').focus();
+});
+
+/* 공책 정리: 삭제 버튼은 여기서만 나온다 (과목을 누르려다 잘못 지우지 않게) */
+document.getElementById('picker-edit-btn').addEventListener('click', ()=>{
+  pickerEditing = !pickerEditing;
+  document.getElementById('picker-edit-btn').textContent = pickerEditing ? '정리 끝내기' : '공책 정리';
+  renderSubjectList();
 });
 
 document.getElementById('switch-subject-btn').addEventListener('click', ()=>{
