@@ -119,11 +119,13 @@
     letter-spacing:1px;margin:0 0 16px;
   }
   .cover-hint{
-    font-family:var(--font-num);font-size:12px;
-    color:var(--line);opacity:0.8;
+    font-family:var(--font-num);font-size:13px;
+    color:#EFF1EC;opacity:0.75;
     animation:cover-pulse 1.8s ease-in-out infinite;
   }
-  @keyframes cover-pulse{ 0%,100%{opacity:0.4;} 50%{opacity:0.9;} }
+  /* 가장 흐릴 때도 읽히게 (0.75 → 7.7:1, 1.0 → 12.5:1) */
+  @keyframes cover-pulse{ 0%,100%{opacity:0.75;} 50%{opacity:1;} }
+  @media (prefers-reduced-motion: reduce){ .cover-hint{ animation:none;opacity:1; } }
 
   /* ---- subject picker ---- */
   #subject-picker{min-height:100vh;background:var(--paper);}
@@ -3588,7 +3590,7 @@ async function deleteNote(id){
 function renderNotesListView(){
   const container = document.getElementById('note-list');
   if(data.notes.length===0){
-    container.innerHTML = `<div class="empty"><span class="display">요점정리가 비어있어요</span>'스캔·입력' 탭에서 스캔하거나 직접 추가해보세요.</div>`;
+    container.innerHTML = `<div class="empty"><span class="display">요점정리가 비어있어요</span>'넣기' 탭에서 스캔하거나 직접 추가해보세요.</div>`;
     return;
   }
   const groups = {};
@@ -3776,7 +3778,7 @@ function renderMemoList(){
   const items = data.questions.filter(q=>q.type==='memo');
   if(items.length===0){
     memoSelCat = null; memoSel.clear();
-    container.innerHTML = `<div class="empty"><span class="display">암기 리스트가 비어있어요</span>'스캔·입력' 탭에서 항목을 추가하거나, 여러 개를 한번에 붙여넣어보세요.</div>`;
+    container.innerHTML = `<div class="empty"><span class="display">암기 리스트가 비어있어요</span>'넣기' 탭에서 항목을 추가하거나, 여러 개를 한번에 붙여넣어보세요.</div>`;
     return;
   }
 
@@ -4243,7 +4245,7 @@ function renderReview(){
         <div class="empty">
           <span class="display">오늘 복습할 문제가 없어요</span>
           ${data.questions.length===0
-            ? "'스캔·입력' 탭에서 첫 문제를 등록해보세요."
+            ? "'넣기' 탭에서 첫 문제를 등록해보세요."
             : `${catNote}카테고리에서 오늘 복습할 항목을 모두 마쳤어요.`}
           ${progressNote}
           ${retryBtnHtml()}
@@ -6007,9 +6009,9 @@ function renderWrongArchive(){
   document.getElementById('wrong-f-wrong').classList.toggle('active', wrongOnly);
   const items = data.questions.filter(q=>q.type!=='memo' && (!wrongOnly || (q.wrongCount||0)>0));
   const pending = data.drafts.length;
-  const pendNote = pending ? `<div style="margin-bottom:12px;font-size:12.5px;color:var(--ink-soft);line-height:1.6;">아직 문제은행에 보내지 않은 오답노트 ${pending}개는 '스캔·입력' 탭에서 볼 수 있어요.</div>` : '';
+  const pendNote = pending ? `<div style="margin-bottom:12px;font-size:12.5px;color:var(--ink-soft);line-height:1.6;">아직 문제은행에 보내지 않은 오답노트 ${pending}개는 '넣기' 탭에서 볼 수 있어요.</div>` : '';
   if(!items.length){
-    container.innerHTML = pendNote + `<div class="empty"><span class="display">${wrongOnly?'틀린 문제가 없어요':'모아둔 오답노트가 없어요'}</span>${wrongOnly?'':"'스캔·입력' 탭에서 오답노트를 써서 문제은행으로 보내면 여기에 모여요."}</div>`;
+    container.innerHTML = pendNote + `<div class="empty"><span class="display">${wrongOnly?'틀린 문제가 없어요':'모아둔 오답노트가 없어요'}</span>${wrongOnly?'':"'넣기' 탭에서 오답노트를 써서 문제은행으로 보내면 여기에 모여요."}</div>`;
     return;
   }
   const groups = {};
