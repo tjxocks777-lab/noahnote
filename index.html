@@ -17,6 +17,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@400;700&family=Gaegu:wght@400;700&family=Jua&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
+    /* 노치·다이내믹 아일랜드 여백. 테스트에서 값을 바꿔 확인할 수 있게 변수로 둔다 */
+    --safe-top:env(safe-area-inset-top, 0px);
     --paper:#FBF7EC;
     --card:#FFFFFF;
     --ink:#1E2A47;
@@ -635,6 +637,9 @@
     height:100vh;height:100dvh;
   }
   .ne-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);}
+  /* 전체화면(position:fixed; inset:0)이라 상단 바가 상태바·다이내믹 아일랜드 밑에 깔려서
+     "← 닫기 / ← 완료" 가 가려지고 눌리지 않던 문제. 아래쪽은 이미 처리돼 있었는데 위만 빠져 있었다. */
+  .ne-top{padding-top:calc(10px + var(--safe-top));}
   .ne-heading{font-family:var(--font-display);font-size:15px;}
   .ne-done{background:var(--ink);color:var(--on-ink);border:none;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
   .ne-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);}
