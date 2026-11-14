@@ -1288,7 +1288,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261113-Z</span></p>
+    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261114-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -2424,7 +2424,13 @@ const nvRO = ('ResizeObserver' in window) ? new ResizeObserver(es=>es.forEach(en
   const el = en.target, w = Math.round(en.contentRect.width);
   if(w !== el._w) requestAnimationFrame(()=>{ if(el.isConnected && Math.round(el.clientWidth) !== el._w) nvPaint(el); });
 })) : null;
-function nvSource(el){ return el.dataset.draft ? noteDraft : el.dataset.jd ? (data.journal||{})[el.dataset.jd] : data.notes.find(n=>n.id===el.dataset.nid); }
+function nvSource(el){
+  if(el.dataset.draft) return noteDraft;
+  if(el.dataset.jd) return (data.journal||{})[el.dataset.jd];
+  if(el.dataset.xd) return (data.drafts.find(d=>d.id===el.dataset.xd)||{}).exp;      // 오답노트 해설
+  if(el.dataset.xq) return (data.questions.find(q=>q.id===el.dataset.xq)||{}).exp;   // 문제은행 해설
+  return data.notes.find(n=>n.id===el.dataset.nid);
+}
 function nvPaint(el){
   const src = nvSource(el);
   if(!src || !noteHasVisual(src)){ el.style.display = 'none'; return; }
@@ -2617,6 +2623,7 @@ function openNoteEditor(){
   neSetMode('text');
 }
 function closeNoteEditor(){
+  if(NEX.on){ nxCloseEditor(); return; }   // 오답노트 해설에서 연 편집기
   if(NEJ.on){ jrCloseEditor(); return; }   // 학습일지에서 연 편집기
   neEl('n-content').value = neEl('ne-text').value;
   noteDraft = {
@@ -4499,7 +4506,7 @@ function renderReview(){
           <div class="result-box" style="margin-bottom:14px;">
             <div class="expl-label">정답</div>
             <div class="expl" style="margin-bottom:10px;">${escapeHtml(q.answer)}</div>
-            ${q.explanation ? `<div class="expl-label">해설</div><div class="expl">${escapeHtml(q.explanation)}</div>` : ''}
+            ${expHtml(q)}
           </div>
           <div class="btn-row grade-row">
             <button class="btn green" id="self-correct">쉬웠어요</button>
@@ -4508,6 +4515,7 @@ function renderReview(){
           <div class="st-note" style="text-align:center;">쉬웠어요: 간격 늘림 · 몰랐어요: 처음부터</div>
         </div>`;
 
+      hydrateNV(document.getElementById('action-row'));   // 해설 손글씨 그리기
       const lockGrade = ()=>['self-correct','self-wrong'].forEach(i=>{ const b=document.getElementById(i); if(b) b.disabled = true; });
       document.getElementById('self-correct').addEventListener('click', ()=>{ lockGrade(); finishGrading(q, true); });
       document.getElementById('self-wrong').addEventListener('click', ()=>{ lockGrade(); finishGrading(q, false); });
@@ -4619,12 +4627,13 @@ async function finishGrading(q, isCorrect){
     slot.innerHTML = `
       <div class="result-box ${isCorrect?'correct':'wrong'}" style="margin-top:16px;">
         <div class="verdict">${isCorrect?'정답':'오답'}</div>
-        ${q.explanation ? `<div class="expl-label">해설</div><div class="expl">${escapeHtml(q.explanation)}</div>` : ''}
+        ${expHtml(q)}
         <div class="next-due">${nextInfo}</div>
       </div>
       <div class="btn-row action-bar">
         <button class="btn" id="next-btn">다음 문제</button>
       </div>`;
+    hydrateNV(slot);   // 해설 손글씨 그리기
     document.getElementById('next-btn').addEventListener('click', goToNextQuestion);
   } else {
     // 맞았어요/틀렸어요를 누르면 바로 다음 문제로 (저장 중 화면이 바뀌었다면 넘기지 않음)
@@ -6277,20 +6286,11 @@ function renderNotes(){
       </div>
       <div class="field">
         <label>해설</label>
-        <textarea class="note-explanation">${escapeHtml(d.explanation)}</textarea>
+        <div class="n-content-box exp-box" data-id="${d.id}"></div>
       </div>
       <div class="field">
         <label>어휘</label>
         <textarea class="note-vocab" placeholder="어휘 (선택)"></textarea>
-      </div>
-      <div class="field">
-        <label>손글씨 메모 (선택)</label>
-        <div class="pen-wrap">
-          <canvas class="pen-canvas" data-id="${d.id}"></canvas>
-        </div>
-        <div class="btn-row" style="margin-top:8px;">
-          <button class="btn outline pen-clear" data-id="${d.id}">지우기</button>
-        </div>
       </div>
       <div class="btn-row">
         <button class="btn note-send-btn" data-id="${d.id}">문제은행으로 보내기</button>
@@ -6298,21 +6298,23 @@ function renderNotes(){
     </div>`;
   }).join('');
 
-  container.querySelectorAll('.pen-canvas').forEach(canvas=>{
-    const d = data.drafts.find(x=>x.id===canvas.dataset.id);
-    setupPenCanvas(canvas, d && d.drawing);
+  container.querySelectorAll('.exp-box').forEach(box=>{
+    const rec = data.drafts.find(x=>x.id===box.dataset.id) || {};
+    const t = expText(rec), e = expOf(rec);
+    const vis = (e && noteHasVisual(e)) || (!e && rec.drawing);
+    if(!t.trim() && !vis){
+      box.classList.add('empty');
+      box.textContent = '눌러서 해설 쓰기 (텍스트 · 펜)';
+    } else {
+      box.classList.remove('empty');
+      box.innerHTML = escapeHtml(t)
+        + (e && noteHasVisual(e) ? `<div class="nv" data-xd="${escapeAttr(rec.id)}"></div>` : '')
+        + (!e && rec.drawing ? `<img src="${escapeAttr(rec.drawing)}" alt="손글씨 메모" style="max-width:100%;display:block;margin-top:8px;border:1px solid var(--line);background:#fff;">` : '');
+      hydrateNV(box);
+    }
+    box.addEventListener('click', ()=>nxOpenEditor(box.dataset.id));
   });
-  container.querySelectorAll('.pen-clear').forEach(btn=>{
-    btn.addEventListener('click', async (e)=>{
-      e.stopPropagation();
-      const canvas = container.querySelector(`.pen-canvas[data-id="${btn.dataset.id}"]`);
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      const d = data.drafts.find(x=>x.id===btn.dataset.id);
-      if(d){ d.drawing = null; await saveData(); }
-    });
-  });
+
 
   container.querySelectorAll('.note-del').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -6336,7 +6338,8 @@ function renderNotes(){
       const c = card.querySelector('.note-c').value.trim();
       const d2 = card.querySelector('.note-d').value.trim();
       const answer = card.querySelector('.note-answer').value.trim();
-      let explanation = card.querySelector('.note-explanation').value.trim();
+      const recNow = data.drafts.find(x=>x.id===id) || {};
+      let explanation = expText(recNow).trim();
       const vocab = card.querySelector('.note-vocab').value.trim();
 
       if(!question){ showToast('문제 내용을 입력해주세요'); return; }
@@ -6355,10 +6358,14 @@ function renderNotes(){
 
       const draftRecord = data.drafts.find(x=>x.id===id);
       const drawing = draftRecord ? (draftRecord.drawing || null) : null;
+      // 해설(글 + 손글씨)을 그대로 옮긴다. 어휘를 덧붙였으면 글도 맞춰 준다.
+      let exp = (draftRecord && draftRecord.exp) ? JSON.parse(JSON.stringify(draftRecord.exp)) : null;
+      if(exp) exp.text = explanation;
 
       data.questions.push({
         id: 'q_'+Date.now()+'_'+Math.floor(Math.random()*10000),
         part, question, choices, answer, explanation,
+        exp: exp,
         drawing: drawing,
         box: 0, correctCount: 0,
         nextReviewDate: todayStr(),
@@ -6889,6 +6896,79 @@ function jrCloseEditor(){
   if(changed) saveData();
   renderJournal();
 }
+/* ── 해설 쓰기 ──
+   오답노트의 해설을 요점정리와 같은 편집기(글 + 손글씨)로 쓴다.
+   사진·마인드맵·글빈칸은 숨긴다 — 동기화가 첨부를 노트와 일지에서만 모으기 때문에
+   (syncAttIds) 해설에 사진을 넣으면 다른 기기에서 조용히 사라진다. */
+const NEX = { on:false, prev:null, id:null, timer:null };
+
+function nxChrome(on){
+  ['ne-attach-btn','ne-mm-btn','ne-cz-btn'].forEach(i=>{
+    const e = document.getElementById(i); if(e) e.style.display = on ? 'none' : '';
+  });
+  const h = document.querySelector('#note-editor .ne-heading');
+  if(h) h.textContent = on ? '해설' : '필기';
+}
+
+function nxCommit(){
+  const rec = data.drafts.find(x=>x.id===NEX.id);
+  if(!rec) return false;
+  const text = neEl('ne-text').value;
+  const d = { strokes:NE.strokes, att:NE.att, freeH:+NE.freeH.toFixed(4),
+              drawing:NE.base ? NE.base.url : '', drawingW:NE.base ? NE.base.w : 0, drawingH:NE.base ? NE.base.h : 0, cz:null };
+  const vis = noteHasVisual(d);
+  let next = null;
+  if(text.trim() || vis){
+    next = { text };
+    if(vis) Object.assign(next, noteVisualFields(d));
+  }
+  if(JSON.stringify(rec.exp || null) === JSON.stringify(next) && (rec.explanation||'') === text) return false;
+  if(next) rec.exp = next; else delete rec.exp;
+  rec.explanation = text;   // 옛 자리도 함께 유지 (문제은행·검색·붙여넣기 호환)
+  return true;
+}
+
+function nxOpenEditor(id){
+  if(NEX.on || NEJ.on) return;
+  const rec = data.drafts.find(x=>x.id===id); if(!rec) return;
+  // 예전 "손글씨 메모"(drawing)가 있으면 해설로 가져온다 — 지우지 않는다
+  const seed = rec.exp ? Object.assign({}, rec.exp)
+    : { text: rec.explanation||'', drawing: rec.drawing||'', drawingW: rec.drawingW||0, drawingH: rec.drawingH||0 };
+  NEX.prev = { content: neEl('n-content').value, draft: noteDraft };
+  neEl('n-content').value = seed.text || '';
+  noteDraft = noteDraftFrom(seed);
+  NEX.on = true; NEX.id = id;
+  openNoteEditor();
+  nxChrome(true);
+  clearInterval(NEX.timer);
+  NEX.timer = setInterval(()=>{ if(NEX.on && nxCommit()) saveData(); }, 4000);
+}
+
+function nxCloseEditor(){
+  clearInterval(NEX.timer); NEX.timer = null;
+  const changed = nxCommit();
+  const rec = data.drafts.find(x=>x.id===NEX.id);
+  if(rec && rec.exp){ delete rec.drawing; delete rec.drawingW; delete rec.drawingH; }   // 해설로 옮겼으니 옛 자리는 비운다
+  neEl('n-content').value = NEX.prev.content; noteDraft = NEX.prev.draft;
+  NEX.on = false; NEX.id = null;
+  nxChrome(false);
+  neEl('note-editor').style.display = 'none';
+  document.body.style.overflow = '';
+  refreshNoteContentBox();
+  if(changed) saveData();
+  renderNotes();
+}
+
+function expOf(o){ return (o && o.exp) ? o.exp : null; }
+function expText(o){ const e = expOf(o); return (e && e.text) || (o && o.explanation) || ''; }
+
+/* 복습 화면 등에서 해설(글 + 손글씨)을 그린다 */
+function expHtml(q){
+  const t = expText(q), e = expOf(q), vis = e && noteHasVisual(e);
+  if(!t.trim() && !vis) return '';
+  return `<div class="expl-label">해설</div><div class="expl">${escapeHtml(t)}${vis ? `<div class="nv" data-xq="${escapeAttr(q.id)}"></div>` : ''}</div>`;
+}
+
 function renderJournal(){
   const box = document.getElementById('journal-area'); if(!box) return;
   const t = todayStr(); if(!jrDate || jrDate>t) jrDate = t;
