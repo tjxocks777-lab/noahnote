@@ -216,3 +216,37 @@ test('문제 1,700개를 합치는 데 2초를 넘지 않는다', () => {
   assert.equal(out.T.questions.length, 1700);
   assert.ok(ms < 2000, `합치기가 ${ms}ms 걸렸어요 (2000ms 넘음)`);
 });
+
+/* ───────────── 해설(글 + 손글씨) ───────────── */
+
+const exp = (t, n = 1) => ({
+  text: t, strokes: Array(n).fill({ t: 'p', c: '#16233F', w: 0.01, p: [0, 0, 1] }),
+  att: [], freeH: 0.4, drawing: '', drawingW: 0, drawingH: 0,
+});
+
+test('한쪽에서만 쓴 해설은 합친 뒤에도 남는다', () => {
+  const B = { T: subject([q('a')]) };
+  const L = { T: subject([q('a', { exp: exp('폰에서 쓴 해설', 2) })]) };
+  const R = { T: subject([q('a')]) };
+  const a = byId(M.syncMergeAll(L, R, B).T.questions, 'a');
+  assert.equal(a.exp.text, '폰에서 쓴 해설');
+  assert.equal(a.exp.strokes.length, 2, '손글씨가 사라지면 안 된다');
+});
+
+test('오답노트(초안)에 쓴 해설도 남는다', () => {
+  const B = { T: subject([], { drafts: [{ id: 'd1', question: 'q' }] }) };
+  const L = { T: subject([], { drafts: [{ id: 'd1', question: 'q', exp: exp('초안 해설') }] }) };
+  const R = { T: subject([], { drafts: [{ id: 'd1', question: 'q' }] }) };
+  assert.equal(M.syncMergeAll(L, R, B).T.drafts[0].exp.text, '초안 해설');
+});
+
+test('양쪽에서 해설을 고치면 한쪽이 통째로 이긴다 (섞이지 않는다)', () => {
+  const B = { T: subject([q('a', { exp: exp('원래', 1) })]) };
+  const L = { T: subject([q('a', { exp: exp('폰에서 고침', 3) })]) };
+  const R = { T: subject([q('a', { exp: exp('PC 에서 고침', 5) })]) };
+  const e = byId(M.syncMergeAll(L, R, B).T.questions, 'a').exp;
+  // 글과 손글씨가 서로 다른 쪽에서 와서 어긋나면 안 된다
+  const fromL = e.text === '폰에서 고침' && e.strokes.length === 3;
+  const fromR = e.text === 'PC 에서 고침' && e.strokes.length === 5;
+  assert.ok(fromL || fromR, `글과 손글씨가 섞였다: ${e.text} / 획 ${e.strokes.length}`);
+});
