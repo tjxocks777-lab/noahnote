@@ -11,6 +11,8 @@ import { store } from '../_lib/kv.js';
 
 const DEFAULT_MAX_BYTES = 6000000;
 const DEFAULT_DAILY_LIMIT = 30;
+// 출력 상한. 쓴 만큼만 요금이 나가므로 한 장에 문제가 많아도 JSON 이 중간에 잘리지 않게 넉넉히 둔다.
+const MAX_OUT_TOKENS = 8000;
 
 // 하루 경계는 한국 시간 기준 (Worker 는 UTC 로 돈다)
 function kstDay(now = Date.now()) {
@@ -35,7 +37,7 @@ async function callClaude(model, b, key) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: Math.min(+b.max_tokens || 1000, 4000), messages: b.messages })
+    body: JSON.stringify({ model, max_tokens: Math.min(+b.max_tokens || 1000, MAX_OUT_TOKENS), messages: b.messages })
   });
   return J(r.status, await r.text());
 }
@@ -54,7 +56,7 @@ function toGeminiParts(messages) {
 
 async function callGemini(model, b, key) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
-  const gen = { maxOutputTokens: Math.min(+b.max_tokens || 1000, 4000), temperature: 0.1, responseMimeType: 'application/json' };
+  const gen = { maxOutputTokens: Math.min(+b.max_tokens || 1000, MAX_OUT_TOKENS), temperature: 0.1, responseMimeType: 'application/json' };
   const send = (cfg) => fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -69,7 +71,9 @@ async function callGemini(model, b, key) {
   const cand = (d.candidates || [])[0];
   const text = cand && cand.content && cand.content.parts ? cand.content.parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n') : '';
   if (!text) return { ok: false, status: 502, message: 'Gemini가 빈 응답을 보냈어요' + (cand && cand.finishReason ? ' (' + cand.finishReason + ')' : '') };
-  return { ok: true, body: { content: [{ type: 'text', text }], usage: d.usageMetadata || null, model } };
+  // 출력 한도에서 끊겼으면 Claude 와 같은 이름으로 알려 준다 — 앱이 잘린 JSON 을 알아보고 건진 부분만 쓴다
+  const stop_reason = cand && cand.finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn';
+  return { ok: true, body: { content: [{ type: 'text', text }], stop_reason, usage: d.usageMetadata || null, model } };
 }
 
 // 하루 횟수 세기. 넘으면 { over: true } 를 돌려준다. KV 가 없거나 실패하면 스캔을 막지 않는다(세는 것 때문에 기능이 죽지 않게).

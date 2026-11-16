@@ -157,3 +157,43 @@ test('POST 가 아니면 405', async () => {
   const r = await onRequest({ request: new Request(URL_, { method: 'GET' }), env: envWith(makeKV()) });
   assert.equal(r.status, 405);
 });
+
+/* ───────────── 출력 한도 · 잘림 표시 ───────────── */
+
+test('출력 한도: 요청한 max_tokens 가 8000 까지는 그대로, 넘으면 8000 으로 줄여 Gemini 에 보낸다', async () => {
+  const real = globalThis.fetch;
+  const sent = [];
+  globalThis.fetch = async (url, init) => {
+    sent.push(JSON.parse(init.body).generationConfig.maxOutputTokens);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[]' }] } }] }), { status: 200 });
+  };
+  try {
+    for (const want of [6000, 99999]) {
+      const kv = makeKV();
+      assert.equal((await call(baseEnv(kv), { ...BODY, max_tokens: want })).status, 200);
+    }
+  } finally { globalThis.fetch = real; }
+  assert.deepEqual(sent, [6000, 8000]);
+});
+
+test('Gemini 가 MAX_TOKENS 로 끊기면 stop_reason 을 max_tokens 로 알려 준다 (앱이 잘린 JSON 을 알아본다)', async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '[{"number":"1"},{"number":"2"' }] } }]
+  }), { status: 200 });
+  try {
+    const r = await call(baseEnv(makeKV()));
+    assert.equal(r.status, 200);
+    const b = await r.json();
+    assert.equal(b.stop_reason, 'max_tokens');
+    assert.equal(b.content[0].text, '[{"number":"1"},{"number":"2"');
+  } finally { globalThis.fetch = real; }
+});
+
+test('정상으로 끝나면 stop_reason 은 end_turn', async () => {
+  const kv = makeKV();
+  await withFetch(async () => {
+    const b = await (await call(baseEnv(kv))).json();
+    assert.equal(b.stop_reason, 'end_turn');
+  });
+});

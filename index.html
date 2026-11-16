@@ -1288,7 +1288,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261114-A</span></p>
+    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261116-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -2660,9 +2660,9 @@ function neLoadImgEl(file){
   });
 }
 function canvasToJpeg(cv, q){ return new Promise(r=>cv.toBlob(b=>r(b), 'image/jpeg', q)); }
-async function neCompressImage(file){
+async function neCompressImage(file, maxSide){
   const b = await neLoadBitmap(file);
-  const sc = Math.min(1, 1600/Math.max(b.w, b.h));
+  const sc = Math.min(1, (maxSide||1600)/Math.max(b.w, b.h));
   const w = Math.max(1, Math.round(b.w*sc)), h = Math.max(1, Math.round(b.h*sc));
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0,0,w,h); c.drawImage(b.src, 0, 0, w, h);
@@ -4762,12 +4762,51 @@ function scanErrText(e){
   if(e && e.scanStatus===413) return m || '사진이 너무 커요. 한 번에 한 장씩 올려보세요';
   if(e && (e.scanStatus===401 || /authentication|x-api-key|invalid/i.test(m))) return 'API 키가 올바르지 않아요 ('+m+')';
   if(/credit|billing|balance/i.test(m)) return 'API 크레딧이 부족해요 ('+m+')';
+  if(e && e.scanCut) return '한 장에 내용이 너무 많아 중간에 끊겼어요. 반으로 나눠서 찍어 보세요';
   if(m.indexOf('JSON')>=0 || e instanceof SyntaxError) return '사진에서 내용을 읽지 못했어요. 더 선명한 사진으로 다시 시도하세요';
   return m || '알 수 없는 오류';
 }
+// AI 응답에서 JSON 을 꺼낸다. 코드블록·앞뒤 설명은 걷어내고, 출력 한도에서 잘린 배열은 온전한 항목까지만 건진다(cut=true).
+function parseAiJson(text){
+  let t = String(text||'').replace(/```json|```/gi, '').trim();
+  try{ return { value: JSON.parse(t), cut: false }; }catch(_){}
+  const i = t.search(/[\[{]/);
+  if(i < 0) throw new SyntaxError('JSON');
+  t = t.slice(i);
+  const j = Math.max(t.lastIndexOf(']'), t.lastIndexOf('}'));
+  if(j > 0){ try{ return { value: JSON.parse(t.slice(0, j+1)), cut: false }; }catch(_){} }
+  if(t[0] === '['){
+    const items = []; let depth = 0, inStr = false, esc = false, start = -1;
+    for(let k=1;k<t.length;k++){
+      const c = t[k];
+      if(inStr){ if(esc) esc = false; else if(c === '\\') esc = true; else if(c === '"') inStr = false; continue; }
+      if(c === '"'){ inStr = true; continue; }
+      if(c === '{' || c === '['){ if(depth === 0) start = k; depth++; }
+      else if(c === '}' || c === ']'){
+        depth--;
+        if(depth === 0 && start >= 0){ try{ items.push(JSON.parse(t.slice(start, k+1))); }catch(_){} start = -1; }
+        else if(depth < 0) break;
+      }
+    }
+    if(items.length) return { value: items, cut: true };
+  }
+  throw new SyntaxError('JSON');
+}
+// 배열을 달라고 했는데 {"questions":[...]} 처럼 객체로 감싸 오거나 문제 하나만 객체로 오는 경우도 받아 준다
+function scanToArray(r){
+  if(Array.isArray(r)) return r;
+  if(r && typeof r === 'object'){
+    const a = Object.values(r).find(Array.isArray);
+    if(a) return a;
+    if(typeof r.question === 'string' || typeof r.term === 'string') return [r];
+  }
+  return [];
+}
+let scanCut = false;   // 직전 스캔이 출력 한도에서 잘려 일부만 읽었는지
+const scanCutNote = ()=> scanCut ? ' 한 장에 내용이 많아 일부만 읽었어요. 나눠서 찍으면 다 나와요.' : '';
 async function scanOne(file, prompt, maxTokens){
   let blob = file;
-  try{ const c = await neCompressImage(file); if(c && c.blob) blob = c.blob; }catch(_){}
+  try{ const c = await neCompressImage(file, 2000); if(c && c.blob) blob = c.blob; }catch(_){}
   const base64 = await fileToBase64(blob);
   const response = await fetch(SCAN_ENDPOINT, {
     method: 'POST',
@@ -4790,12 +4829,20 @@ async function scanOne(file, prompt, maxTokens){
     err.scanStatus = response.status; throw err;
   }
   const text = (resData.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-  return JSON.parse(text.replace(/```json|```/g, '').trim());
+  let r;
+  try{ r = parseAiJson(text); }
+  catch(e){
+    if(resData.stop_reason === 'max_tokens'){ const err = new Error('내용이 많아 중간에 끊겼어요'); err.scanCut = true; throw err; }
+    throw e;
+  }
+  if(r.cut || resData.stop_reason === 'max_tokens') scanCut = true;
+  return r.value;
 }
 async function scanAll(prompt, maxTokens, kind){
   const status = document.getElementById('scan-status');
   const files = scanFiles.slice(), results = [];
   let fail = 0, lastErr = null;
+  scanCut = false;
   for(let i=0;i<files.length;i++){
     if(files.length>1) status.textContent = `${i+1}/${files.length}장 분석하고 있어요...`;
     try{ results.push(await scanOne(files[i], prompt, maxTokens)); }
@@ -4804,7 +4851,7 @@ async function scanAll(prompt, maxTokens, kind){
   if(!results.length) throw (lastErr || new Error('scan'));
   if(fail) showToast(`${fail}장은 인식에 실패해서 제외했어요`);
   if(kind==='raw') return results;
-  if(kind==='array') return results.reduce((a,r)=>a.concat(Array.isArray(r)?r:[]), []);
+  if(kind==='array') return results.reduce((a,r)=>a.concat(scanToArray(r)), []);
   const objs = results.filter(r=>r && r.content);
   if(!objs.length) return null;
   return {
@@ -4839,12 +4886,12 @@ async function runQuizScan(){
 - 이미지에 보이는 모든 문제를 빠짐없이 추출하세요.
 - 확실하지 않으면 지어내지 말고 빈 배열 [] 을 출력하세요.`;
 
-    const parsed = await scanAll(prompt, 1500, 'array');
+    const parsed = await scanAll(prompt, 6000, 'array');
 
     if(!Array.isArray(parsed) || parsed.length===0){
       document.getElementById('scan-status').textContent = '인식된 문제가 없어요. 더 선명한 사진으로 다시 시도해주세요.';
     } else {
-      document.getElementById('scan-status').textContent = `${parsed.length}개 문제를 인식했어요. 필요한 문제만 선택해주세요.`;
+      document.getElementById('scan-status').textContent = `${parsed.length}개 문제를 인식했어요. 필요한 문제만 선택해주세요.` + scanCutNote();
       renderScanResults(parsed);
     }
   } catch(e){
@@ -4877,7 +4924,7 @@ async function runNoteScan(){
 - 손글씨 낙서나 관련 없는 여백은 무시하세요.
 - 연습문제는 방금 정리한 규칙/패턴을 직접 확인할 수 있는 문제로, 너무 쉽거나 내용과 무관하지 않게 만드세요.`;
 
-    const parsed = await scanAll(prompt, 2000, 'object');
+    const parsed = await scanAll(prompt, 4000, 'object');
 
     if(!parsed || !parsed.content){
       document.getElementById('scan-status').textContent = '내용을 정리하지 못했어요. 더 선명한 사진으로 다시 시도해주세요.';
@@ -5528,7 +5575,7 @@ async function aiJson(prompt, maxTokens){
     const err = new Error('서버 응답 '+response.status+(em?': '+em:'')); err.scanStatus = response.status; throw err;
   }
   const text = (resData.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-  return JSON.parse(text.replace(/```json|```/g,'').trim());
+  return parseAiJson(text).value;
 }
 function aiPanel(title){ document.getElementById('ai-title').textContent = title; document.getElementById('aipanel').style.display='flex'; return document.getElementById('ai-body'); }
 document.getElementById('ai-close').addEventListener('click', ()=>{ document.getElementById('aipanel').style.display = 'none'; });
@@ -5780,7 +5827,7 @@ async function runMindmapScan(){
 - 각 칸의 글은 짧은 키워드나 구로 쓰세요(가능하면 20자 이내). 문장 전체를 넣지 마세요. 영어 원문은 그대로 두세요.
 - 암기해야 할 핵심 용어·정의·숫자·공식에 해당하는 칸에는 "key": true를 붙이세요(전체 칸의 약 20~30%). 중심 주제와 가지 제목에는 붙이지 마세요.
 - 손글씨 낙서나 관련 없는 여백은 무시하세요.`;
-    const results = await scanAll(prompt, 3000, 'raw');
+    const results = await scanAll(prompt, 4000, 'raw');
     const trees = results.filter(r=>r && r.tree && r.tree.t).map(r=>({ title: r.title||'', tree: mmFromAi(r.tree, 0) }));
     if(!trees.length){
       document.getElementById('scan-status').textContent = '마인드맵으로 정리하지 못했어요. 더 선명한 사진으로 다시 시도해주세요.';
@@ -5879,11 +5926,11 @@ async function runMemoScan(){
 - 한 단어에 뜻이 여러 개면 쉼표로 이어서 meaning에 모두 넣으세요.
 - 손글씨 낙서, 형광펜, 체크 표시는 무시하세요.
 - 뜻이 이미지에 없는 항목은 meaning을 빈 문자열로 두세요.`;
-    const parsed = await scanAll(prompt, 4000, 'array');
+    const parsed = await scanAll(prompt, 6000, 'array');
     if(!Array.isArray(parsed) || parsed.length===0){
       status.textContent = '인식된 항목이 없어요. 더 선명한 사진으로 다시 시도해주세요.';
     } else {
-      status.textContent = `${parsed.length}개 항목을 인식했어요. 내용을 확인하고 추가해주세요.`;
+      status.textContent = `${parsed.length}개 항목을 인식했어요. 내용을 확인하고 추가해주세요.` + scanCutNote();
       renderMemoScanResults(parsed);
     }
   }catch(e){
