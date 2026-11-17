@@ -1288,7 +1288,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261116-A</span></p>
+    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261117-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -2873,16 +2873,27 @@ function mmLayoutV(ctx){
   const H = Math.max(...nodes.map(o=>o.y+o.h)) + 16;
   return { mode:'v', root: roots[0], roots, nodes, links, W: WV, H };
 }
-/* 배치: lay='v' 세로형, lay='h' 가로형, 없으면 자동 — 가로형이 이 폭(px)보다 넓어지면 노트에서 작게 줄어들므로 세로형으로 바꿔 크게 보이게 함 */
-const MM_AUTO_W = 520;
-/* 자동 배치: 가로형이 화면 너비 안에 들어가면 가로형, 아니면 세로형(폰처럼 좁은 화면). 넓은 컴퓨터 화면에서는 가로로 펼쳐 보임 */
-function mmAutoW(){ return Math.max(MM_AUTO_W, (window.innerWidth||0) - 24); }
+/* 배치(가로형 'h' / 세로형 'v')는 늘 "지금 쓰는 기기의 화면"으로만 고른다.
+   폰과 컴퓨터는 화면이 달라 같은 마인드맵도 읽기 좋은 배치가 다르기 때문이다. 카드·확대 보기·빈칸 학습·편집기가 모두 이 한 규칙을 쓴다.
+   직접 고른 가로/세로는 기기 종류별로 따로 저장한다(layPh=폰, layPc=컴퓨터) — 한쪽에서 바꿔도 다른 기기는 그대로 자기 화면에 맞게 보인다.
+   예전 버전이 저장해 둔 lay 는 어느 기기에서 정해졌는지 알 수 없고(열기만 해도 저장됐다) 다른 기기를 깨뜨리므로 쓰지 않는다. */
+function mmDev(){ return (window.innerWidth||0) < 720 ? 'ph' : 'pc'; }
+function mmLayKey(){ return mmDev()==='ph' ? 'layPh' : 'layPc'; }
+function mmLayPref(tree){ return (tree && tree[mmLayKey()]) || ''; }
+function mmSetLayPref(tree, l){ if(l) tree[mmLayKey()] = l; else delete tree[mmLayKey()]; delete tree.lay; }
+/* 마인드맵 한 장이 카드에서 차지할 기준 너비: 폰은 화면 가로, 컴퓨터는 카드 최대폭 */
+function mmRefW(){ const w = window.innerWidth||360; return mmDev()==='ph' ? Math.max(280, w-40) : Math.min(646, Math.max(400, w-80)); }
+/* MM.tree 를 이 기기에 맞는 배치로 계산해 돌려준다.
+   가로가 기준 너비 안에서 충분히 크게(폰 0.8배, 컴퓨터 0.6배 이상) 보이면 가로, 아니면 세로 — 세로가 확실히 더 크게 보일 때만 */
 function mmLayout(ctx){
-  const lay = MM.tree && MM.tree.lay;
-  if(lay==='v') return mmLayoutV(ctx);
+  const pref = mmLayPref(MM.tree);
+  if(pref==='v') return mmLayoutV(ctx);
   const h = mmLayoutH(ctx);
-  if(lay==='h' || h.W <= mmAutoW()) return h;
-  return mmLayoutV(ctx);
+  if(pref==='h') return h;
+  const R = mmRefW(), sh = Math.min(1, R / Math.max(h.W, 1));
+  if(sh >= (mmDev()==='ph' ? 0.8 : 0.6)) return h;
+  const v = mmLayoutV(ctx), sv = Math.min(1, R / Math.max(v.W, 1));
+  return (sv > sh*1.25) ? v : h;
 }
 function mmRR(ctx, x, y, w, h, r){
   ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
@@ -2966,7 +2977,7 @@ function mmRender0(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
   mmDraw(ctx, L, MM.sel);
-  if(!MM.tree.lay){
+  if(!mmLayPref(MM.tree)){
     if(MM.lastMode==='h' && L.mode==='v') showToast('가로가 넓어져서 세로형으로 보여줘요 (아래 "배치"에서 바꿀 수 있어요)');
     MM.lastMode = L.mode;
   }
@@ -3002,7 +3013,7 @@ function mmSyncBar(){
   neEl('mm-fold').disabled = !node || !node.ch.length;
   neEl('mm-fold').textContent = node && node.col ? '펼치기' : '접기';
   neEl('mm-undo').disabled = !MM.undo.length;
-  { const cur = MM.tree.lay || '';
+  { const cur = mmLayPref(MM.tree);
     ['mm-lay-auto','mm-lay-h','mm-lay-v'].forEach(id=>neEl(id).classList.toggle('on', (neEl(id).dataset.l||'')===cur));
     neEl('mm-lay-now').textContent = !cur && MM.layout ? (MM.layout.mode==='v' ? '지금: 세로형' : '지금: 가로형') : ''; }
   neEl('mm-fills').querySelectorAll('.mm-sw').forEach(b=>b.classList.toggle('active', (b.dataset.c||'')===(node && node.f || '')));
@@ -3018,7 +3029,7 @@ function mmOpen(attId){
   const base = a && a.mm ? mmClone(a.mm) : mmNew('');
   MM.tree = base.hidden ? base : { id:'sr'+Date.now().toString(36), t:'', hidden:true, ch:[base] };
   MM.sel = MM.tree.ch[0].id;
-  if(a && a.mm) mmKeepLay(MM.tree, a.ar);     // 노트에 보이던 그림과 같은 모양으로 열기(자동 배치가 다르게 고르면 그 배치로 고정)
+  delete MM.tree.lay;     // 예전 버전이 저장한 배치는 쓰지 않는다(위 설명). 이 기기에서 직접 고른 것만 layPh/layPc 로 남는다
   neEl('mm-editor').style.display = 'flex';
   neEl('mm-scroll').scrollTop = 0; neEl('mm-scroll').scrollLeft = 0;
   mmRender();
@@ -3042,21 +3053,7 @@ function mmHasBlank(tree){ return !!(tree && mmBlankCount(tree)); }
 function mmLayoutFor(tree, width){
   const keepTree = MM.tree;
   MM.tree = tree;
-  try{
-    const ctx = document.createElement('canvas').getContext('2d');
-    const lay = tree && tree.lay;
-    if(lay === 'v') return mmLayoutV(ctx);
-    const h = mmLayoutH(ctx);
-    if(lay === 'h') return h;
-    // 가로가 읽을 만하면 가로를 쓴다 — 지은 모양 그대로이고 보통 훨씬 짧다.
-    // (PC 카드 646px 에서 깊은 사슬은 가로 배율 0.66·높이 122px, 세로는 높이 596px)
-    const sh = Math.min(1, width / Math.max(h.W, 1));
-    if(sh >= 0.6) return h;
-    // 가로로는 글자가 뭉개질 때만 세로로 — 세로가 확실히 더 크게 보일 경우에 한해
-    const v = mmLayoutV(ctx);
-    const sv = Math.min(1, width / Math.max(v.W, 1));
-    return (sv > sh * 1.25) ? v : h;
-  }
+  try{ return mmLayout(document.createElement('canvas').getContext('2d')); }
   finally{ MM.tree = keepTree; }
 }
 function mmPaintInto(cv, tree, width){
@@ -3102,30 +3099,12 @@ function mmLayoutOf(tree){
 }
 const MS = { list:[], idx:0, hide:new Set(), layout:null, tree:null, title:'', cat:'', zoom:1 };
 function mmWrapHidden(t){ return t.hidden ? t : { id:'sr0', t:'', hidden:true, ch:[t] }; }
-/* 노트에 보이는 그림과 같은 배치(가로형/세로형)를 고름: 저장된 그림의 가로세로 비율(ar)에 더 가까운 쪽.
-   배치가 따로 지정돼 있으면 그대로 둠. (예전에 가로형으로 저장된 그림이 학습 화면에서 세로형으로 바뀌어 모양이 달라지던 문제) */
-function mmPickLay(tree, ar){
-  if(tree.lay || !(ar > 0)) return tree.lay || '';
-  const keep = MM.tree; MM.tree = tree;
-  try{
-    const ctx = document.createElement('canvas').getContext('2d');
-    const h = mmLayoutH(ctx), v = mmLayoutV(ctx);
-    const rh = h.H/Math.max(h.W,320), rv = v.H/Math.max(v.W,320);
-    return Math.abs(Math.log(rh/ar)) <= Math.abs(Math.log(rv/ar)) ? 'h' : 'v';
-  }catch(e){ return ''; } finally { MM.tree = keep; }
-}
-function mmKeepLay(tree, ar){
-  if(tree.lay || !(ar > 0)) return;
-  const pick = mmPickLay(tree, ar); if(!pick) return;
-  if(mmLayoutOf(tree).mode !== pick) tree.lay = pick;
-}
 /* trees: 마인드맵 데이터 또는 {tree, ar}(저장된 그림 비율을 함께 줄 때) */
 function mmStudyOpen(trees, title, cat){
   const list = trees.map(x=>{
-    const tr = (x && x.tree) ? x.tree : x, ar = (x && x.tree) ? x.ar : 0;
+    const tr = (x && x.tree) ? x.tree : x;
     const c = mmClone(mmWrapHidden(tr)); (function w(n){ delete n.col; (n.ch||[]).forEach(w); })(c);
-    if(!c.lay && tr.lay) c.lay = tr.lay;
-    if(!c.lay && ar){ const l = mmPickLay(c, ar); if(l) c.lay = l; }
+    delete c.lay;
     return c;
   }).filter(mmHasBlank);
   if(!list.length){ showToast('가릴 칸이 아직 없어요. 칸을 누른 뒤 "빈칸 지정"을 눌러 먼저 정해주세요'); return; }
@@ -3315,8 +3294,7 @@ async function attUrl(a){
   if(!attRegen.has(a.id)){
     attRegen.set(a.id, (async()=>{
       try{
-        let tree = a.mm.hidden ? a.mm : { id:'sr0', t:'', hidden:true, ch:[a.mm] };
-        if(!tree.lay && a.ar){ const l = mmPickLay(tree, a.ar); if(l) tree = Object.assign({}, tree, { lay:l }); }   // 노트에 잡힌 그림 비율과 같은 배치로 (안 그러면 그림이 늘어나 보임)
+        const tree = a.mm.hidden ? a.mm : { id:'sr0', t:'', hidden:true, ch:[a.mm] };
         const r = await mmRenderPng(tree);
         if(r && r.blob){ await AttDB.put(a.id, r.blob); return await AttDB.url(a.id); }
       }catch(e){ console.error(e); }
@@ -3385,8 +3363,8 @@ async function mmFinish(){
   }));
   ['mm-lay-auto','mm-lay-h','mm-lay-v'].forEach(id=>neEl(id).addEventListener('click', ()=>{
     const l = neEl(id).dataset.l || '';
-    if((MM.tree.lay||'')===l) return;
-    mmPush(); if(l) MM.tree.lay = l; else delete MM.tree.lay; MM.lastMode = null; mmRender();
+    if(mmLayPref(MM.tree)===l) return;
+    mmPush(); mmSetLayPref(MM.tree, l); MM.lastMode = null; mmRender();
     const sc = neEl('mm-scroll'); sc.scrollLeft = 0;
   }));
   // 칸 색 (칸 안쪽 배경색). '하위 칸도'를 켜면 선택한 칸 아래 모든 칸에 한꺼번에 적용
@@ -3530,7 +3508,7 @@ async function mmFinish(){
   neEl('ms2-zfit').addEventListener('click', ()=>{ const f = mmStudyFitZoom(); mmStudyZoom(Math.abs((MS.zoom||1)-f) > 0.02 ? f : 1); });
   neEl('ms2-lay').addEventListener('click', ()=>{
     if(!MS.tree || !MS.layout) return;
-    MS.tree.lay = MS.layout.mode==='v' ? 'h' : 'v';
+    mmSetLayPref(MS.tree, MS.layout.mode==='v' ? 'h' : 'v');
     neEl('ms2-scroll').scrollTop = 0; neEl('ms2-scroll').scrollLeft = 0;
     mmStudyOpenFit();
   });
