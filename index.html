@@ -1288,7 +1288,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261117-A</span></p>
+    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261118-A</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -7586,6 +7586,36 @@ document.addEventListener('visibilitychange', ()=>{
   else if(lsGet(SYNC_DIRTY_KEY)==='1'){ clearTimeout(syncTimer); syncRun(); }   // 앱을 떠나는 순간 아직 안 올린 변경이 있으면 바로 올림
 });
 window.addEventListener('online', ()=>syncRun());
+
+/* 새 버전 알림 — 앱(탭)을 켜 둔 채로 두면 옛 화면이 계속 떠서 고친 게 안 보인다.
+   앞으로 돌아올 때 서버의 버전을 보고 다르면 위에 알림을 띄운다. 눌러야만 새로고침해서(쓰던 내용이 갑자기 사라지지 않게) 아무 때나 바뀌지 않는다. */
+let updLast = 0, updShown = false;
+async function updCheck(){
+  if(updShown || !/^https?:$/.test(location.protocol) || Date.now() - updLast < 120000) return;
+  updLast = Date.now();
+  try{
+    const r = await fetch(location.pathname + '?_v=' + Date.now(), { cache:'no-store' });
+    if(!r.ok) return;
+    const m = /id="app-ver">([^<]+)</.exec(await r.text()), cur = (document.getElementById('app-ver')||{}).textContent;
+    if(m && cur && m[1].trim() !== cur.trim()) updShow();
+  }catch(_){}
+}
+function updShow(){
+  updShown = true;
+  const b = document.createElement('button');
+  b.type = 'button'; b.id = 'upd-bar'; b.textContent = '새 버전이 있어요 · 눌러서 새로고침';
+  b.style.cssText = 'position:fixed;top:calc(10px + var(--safe-top));left:50%;transform:translateX(-50%);z-index:400;background:#F6D56B;color:#1E2A47;border:0;border-radius:999px;padding:11px 20px;font:600 13px/1.2 inherit;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:calc(100vw - 24px);white-space:nowrap;cursor:pointer;';
+  b.addEventListener('click', async ()=>{
+    b.textContent = '새로고침 중…';
+    try{ jrFlush(); }catch(_){}
+    try{ if(lsGet(SYNC_DIRTY_KEY)==='1') await Promise.race([syncRun(), new Promise(r=>setTimeout(r, 4000))]); }catch(_){}
+    location.reload();
+  });
+  document.body.appendChild(b);
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') setTimeout(updCheck, 1500); });
+window.addEventListener('pageshow', e=>{ if(e.persisted) setTimeout(updCheck, 1500); });
+setInterval(()=>{ if(document.visibilityState==='visible') updCheck(); }, 30*60*1000);
 
 document.getElementById('backup-import-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());
 document.getElementById('picker-restore-btn').addEventListener('click', ()=>document.getElementById('backup-import-input').click());

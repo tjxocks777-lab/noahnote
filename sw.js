@@ -1,5 +1,5 @@
 /* NOAH NOTE 서비스워커 — 앱 껍데기를 저장해 두어 오프라인에서도 열리게 함 */
-const VER = 'noah-note-v3';
+const VER = 'noah-note-v4';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VER).then(c => c.addAll(SHELL)).catch(()=>{}).then(() => self.skipWaiting()));
@@ -40,6 +40,7 @@ self.addEventListener('fetch', e => {
   if(req.method !== 'GET') return;
   if(url.protocol !== 'http:' && url.protocol !== 'https:') return;
   if(url.pathname.startsWith('/api/')) return;
+  if(url.searchParams.has('_v')) return;                     // 앱의 새 버전 확인 요청 — 저장하지 않고 항상 인터넷으로
   if(url.hostname === 'api.anthropic.com') return;           // 스캔(AI) 요청은 항상 인터넷으로
   if(req.mode === 'navigate'){                                // 화면: 인터넷이 되면 최신, 안 되면 저장본
     e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(VER).then(c => c.put('index.html', cp)); return r; })
