@@ -654,6 +654,10 @@
     cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0;
   }
   .memo-group-title:hover{color:var(--ink);}
+  @media(max-width:520px){
+    #memo-list .memo-group-title-row{flex-wrap:wrap;justify-content:flex-end;row-gap:4px;}
+    #memo-list .memo-group-title-row .memo-group-title{flex:1 1 100%;}
+  }
   .memo-group-del-btn{
     background:none;border:none;color:var(--pencil);text-decoration:underline;
     font-size:11px;cursor:pointer;flex:none;
@@ -665,6 +669,8 @@
   }
   .memo-reveal-all-btn:hover{color:var(--ink);border-color:var(--ink-soft);}
   .memo-group-arrow{font-family:var(--font-num);font-size:11px;transition:transform .15s ease;}
+  .memo-group-ren-btn{background:none;border:none;color:var(--pencil);font-size:14px;line-height:1;padding:6px 8px;cursor:pointer;flex:none;}
+  .memo-group-ren-btn:hover{color:var(--ink);}
   .memo-group.expanded .memo-group-arrow{transform:rotate(90deg);}
   .memo-group-count{font-family:var(--font-num);font-size:11px;color:var(--pencil);font-weight:400;}
   .memo-sel-cb{display:none;width:20px;height:20px;margin:0;flex:none;accent-color:var(--ink);}
@@ -672,7 +678,7 @@
   .memo-group-sel-btn{background:none;border:1px solid var(--line);color:var(--ink-soft);font-size:11px;padding:3px 8px;cursor:pointer;flex:none;white-space:nowrap;}
   .memo-group-sel-btn:hover{color:var(--ink);border-color:var(--ink-soft);}
   .memo-group:not(.selecting) .memo-toolbar{display:none;}
-  .memo-group.selecting .memo-reveal-all-btn,.memo-group.selecting .memo-group-del-btn,.memo-group.selecting .memo-meta-row .row-actions,.memo-group.selecting .memo-fav-btn{display:none;}
+  .memo-group.selecting .memo-reveal-all-btn,.memo-group.selecting .memo-group-del-btn,.memo-group.selecting .memo-group-ren-btn,.memo-group.selecting .memo-meta-row .row-actions,.memo-group.selecting .memo-fav-btn{display:none;}
   #memo-list .memo-row.sel{background:#EEF2FA;}
   .memo-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .memo-toolbar button{font-size:13px;padding:6px 12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;}
@@ -1304,7 +1310,7 @@
       <p style="font-size:12px;color:var(--pencil);line-height:1.6;margin:10px 0 0;">아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱으로 열었을 때만 알림이 와요 (iOS 16.4 이상). 위젯은 웹앱에서 지원되지 않아요. 대신 앱 아이콘에 오늘 복습할 개수가 숫자로 표시돼요(지원 기기).</p>
     </div>
 
-    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261118-B</span></p>
+    <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:20px 0 8px;">앱 버전 <span id="app-ver">20261118-C</span></p>
 
     <div class="settings-block" id="scanmodel-block">
       <h3>스캔 정확도 / 비용</h3>
@@ -3953,7 +3959,7 @@ function renderMemoList(){
     const rows = groups[cat].slice().sort((a,b)=>a.question.localeCompare(b.question,'ko'));
     return `<div class="memo-group" data-cat="${escapeAttr(cat)}">
       <div class="memo-group-title-row">
-        <p class="memo-group-title"><span class="memo-group-arrow">▸</span>${escapeHtml(cat)} <span class="memo-group-count">(${rows.length})</span></p>
+        <p class="memo-group-title"><span class="memo-group-arrow">▸</span>${escapeHtml(cat)} <span class="memo-group-count">(${rows.length})</span><button class="memo-group-ren-btn" type="button" data-cat="${escapeAttr(cat)}" aria-label="이름 바꾸기">✎</button></p>
         <button class="memo-reveal-all-btn">뜻 모두 보기</button>
         <button class="memo-group-sel-btn" type="button">선택</button>
         <button class="memo-group-del-btn" data-cat="${escapeAttr(cat)}">카테고리 삭제</button>
@@ -4041,7 +4047,7 @@ function renderFavoritesList(){
     const rows = groups[cat].slice().sort((a,b)=>a.question.localeCompare(b.question,'ko'));
     return `<div class="memo-group">
       <div class="memo-group-title-row">
-        <p class="memo-group-title"><span class="memo-group-arrow">▸</span>${escapeHtml(cat)} <span class="memo-group-count">(${rows.length})</span></p>
+        <p class="memo-group-title"><span class="memo-group-arrow">▸</span>${escapeHtml(cat)} <span class="memo-group-count">(${rows.length})</span><button class="memo-group-ren-btn" type="button" data-cat="${escapeAttr(cat)}" aria-label="이름 바꾸기">✎</button></p>
         <button class="memo-reveal-all-btn">뜻 모두 보기</button>
       </div>
       <div class="memo-group-rows">
@@ -6248,7 +6254,7 @@ function renderWrongArchive(){
   container.innerHTML = pendNote + Object.keys(groups).sort(naturalCompare).map(cat=>{
     const rows = groups[cat].slice().sort((a,b)=>(b.wrongCount||0)-(a.wrongCount||0) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
     return `<div class="memo-group">
-      <p class="memo-group-title"><span class="memo-group-arrow">▸</span>${escapeHtml(cat)} <span class="memo-group-count">(${rows.length})</span></p>
+      <p class="memo-group-title"><span class="memo-group-arrow">▸</span>${escapeHtml(cat)} <span class="memo-group-count">(${rows.length})</span><button class="memo-group-ren-btn" type="button" data-cat="${escapeAttr(cat)}" aria-label="이름 바꾸기">✎</button></p>
       <div class="memo-group-rows">
       ${rows.map(q=>{
         const [sc, st] = statusOf(q);
@@ -6986,7 +6992,7 @@ function expHtml(q){
 /* ---------- 항목 수정 창 ---------- */
 /* 암기 항목(용어·뜻·설명)과 문제은행 문제(문제·보기·정답·해설+손글씨)를 목록 자리에서 바로 고친다.
    해설은 작업본(IE.w)에서 고치고 [저장]을 눌러야 원본에 반영된다. */
-const IE = { on:false, id:null, memo:false, w:null };
+const IE = { on:false, id:null, memo:false, w:null, rn:null };
 const ieEl = i => document.getElementById(i);
 
 function ieGrow(ta){ if(!ta) return; ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 280) + 'px'; }
@@ -7063,7 +7069,7 @@ function ieOpen(id){
 }
 
 function ieClose(){
-  IE.on = false; IE.id = null; IE.w = null;
+  IE.on = false; IE.id = null; IE.w = null; IE.rn = null;
   ieEl('ie-modal').classList.remove('show');
   ieEl('ie-body').innerHTML = '';
   document.body.style.overflow = '';
@@ -7085,14 +7091,16 @@ function ieInk(){
 }
 
 /* 고친 뒤 목록들을 다시 그린다. 펼쳐 둔 묶음은 그대로 둔다 */
-function ieRefresh(){
+const ieGName = t => { const c = t.cloneNode(true); c.querySelectorAll('button').forEach(b=>b.remove()); return c.textContent.replace(/\s*\(\d+\)\s*$/,'').replace(/^▸/,'').trim(); };
+function ieRefresh(renamed){
   const ids = ['memo-list','favorite-list','wrong-note-list','wrong-questions-list'];
   const open = ids.map(i=>{
     const c = ieEl(i); if(!c) return null;
-    return { groups: Array.from(c.querySelectorAll('.memo-group.expanded .memo-group-title')).map(e=>e.textContent.replace(/\s*\(\d+\)\s*$/,'').replace(/^▸/,'').trim()),
+    return { groups: Array.from(c.querySelectorAll('.memo-group.expanded .memo-group-title')).map(ieGName),
              items: Array.from(c.querySelectorAll('.note-item.expanded')).map(e=>e.dataset.id),
              dets: Array.from(c.querySelectorAll('details[open] .wq-d')).map(e=>e.textContent.trim()) };
   });
+  if(renamed) open.forEach(o=>{ if(o){ o.groups = o.groups.map(n=>n===renamed.from ? renamed.to : n); } });
   const sy = window.scrollY;
   [renderMemoList, renderFavoritesList, renderWrongQuestions, renderWrongArchive, renderCatSummary, renderStatStrip].forEach(fn=>{ try{ fn(); }catch(e){ console.error(e); } });
   if(statsViewOpen()) { try{ renderStatsView(); }catch(e){ console.error(e); } }
@@ -7100,7 +7108,7 @@ function ieRefresh(){
     const c = ieEl(i), o = open[k]; if(!c || !o) return;
     c.querySelectorAll('.memo-group').forEach(g=>{
       const t = g.querySelector('.memo-group-title'); if(!t) return;
-      const name = t.textContent.replace(/\s*\(\d+\)\s*$/,'').replace(/^▸/,'').trim();
+      const name = ieGName(t);
       if(o.groups.includes(name)) g.classList.add('expanded');
     });
     c.querySelectorAll('.note-item').forEach(n=>{ if(o.items.includes(n.dataset.id)) n.classList.add('expanded'); });
@@ -7109,7 +7117,41 @@ function ieRefresh(){
   window.scrollTo(0, sy);
 }
 
+/* 분류(묶음 제목) 이름 바꾸기 — 그 분류의 모든 항목의 분류가 한 번에 바뀐다. 이미 있는 이름이면 합친다 */
+function ieRename(memo, cat){
+  if(IE.on) return;
+  IE.on = true; IE.id = null; IE.memo = memo; IE.w = null; IE.rn = { memo, cat };
+  ieEl('ie-title').textContent = '분류 이름 바꾸기';
+  ieEl('ie-body').innerHTML = `<div class="field"><input type="text" id="ie-rn" maxlength="60" autocomplete="off"></div>`;
+  const inp = ieEl('ie-rn'); inp.value = cat;
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); ieSave(); } });
+  ieEl('ie-modal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(_){} }, 60);
+}
+async function ieRenameSave(){
+  const { memo, cat } = IE.rn;
+  const name = ieEl('ie-rn').value.trim();
+  if(!name){ showToast('이름을 입력해주세요'); return; }
+  if(name === cat){ ieClose(); return; }
+  const same = q => (q.type==='memo')===memo;
+  const exists = data.questions.some(q=>same(q) && (q.part||'기타')===name);
+  const go = async ()=>{
+    let n = 0;
+    data.questions.forEach(q=>{ if(same(q) && (q.part||'기타')===cat){ q.part = name; n++; } });
+    if(reviewCats.has(cat)){ reviewCats.delete(cat); reviewCats.add(name); }
+    if(catSumOpen.has(cat)){ catSumOpen.delete(cat); catSumOpen.add(name); }
+    await saveData();
+    ieClose();
+    ieRefresh({ from:cat, to:name });
+    showToast(exists ? `'${name}' 분류와 합쳤어요` : '이름을 바꿨어요');
+  };
+  if(exists) showConfirmModal(`'${name}' 분류가 이미 있어요.\n'${cat}' 항목을 그 분류로 합칠까요?`, go, null, '합치기', '아니요');
+  else await go();
+}
+
 async function ieSave(){
+  if(IE.rn) return ieRenameSave();
   const q = data.questions.find(x=>x.id===IE.id);
   if(!q){ ieClose(); return; }
   const sel = ieEl('ie-part').value;
@@ -7147,6 +7189,13 @@ async function ieSave(){
 ieEl('ie-cancel').addEventListener('click', ieClose);
 ieEl('ie-save').addEventListener('click', ieSave);
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && IE.on && !NEX.on) ieClose(); });
+/* 묶음 제목 옆 ✎ — 제목 눌림(펼치기)보다 먼저 가로챈다 */
+document.addEventListener('click', e=>{
+  const b = e.target.closest && e.target.closest('.memo-group-ren-btn');
+  if(!b) return;
+  e.stopPropagation(); e.preventDefault();
+  ieRename(!b.closest('#wrong-note-list'), b.dataset.cat);
+}, true);
 
 function renderJournal(){
   const box = document.getElementById('journal-area'); if(!box) return;
